@@ -56,3 +56,12 @@
       the existing ones into one.
     * To get this kind of histogram to work with atomics, I'll need some custom
       float type whose members compile down to relaxed atomic ops.
+
+- There is a bug in `RHistBufferedFill::Flush()`. It doesn't reset the cursor,
+  so calling it multiple times in a row will write the same data multiple times.
+    * fCursor = 0 from `RHistBufferedFillBase::Fill()` should probably go here
+    * `RHistConcurrentFiller::Flush()` seems equally vulnerable
+    * To be reported to the ROOT team...
+
+- Another bug: `RHistConcurrentFiller::GetHist()` and friends map to a
+  nonexistent method of `RHistConcurrentFillManager`.

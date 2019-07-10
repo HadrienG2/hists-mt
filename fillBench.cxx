@@ -16,9 +16,9 @@ constexpr size_t NUM_ITERS = 300 * 1000 * 1000;
 
 // For now, we'll be studying 1D hists with integer bins
 using BinData = size_t;
+using Coords1D = RExp::Hist::RCoordArray<1>;
 using Hist1D = RExp::RHist<1, BinData>;
 using BufHist1D = RExp::RHistBufferedFill<Hist1D, BATCH_SIZE>;
-using Coords1D = RExp::Hist::RCoordArray<1>;
 
 // Just a simplistic microbenchmark harness
 template <typename FUNC>
@@ -36,6 +36,7 @@ void time_it(const std::string& name, FUNC&& do_work) {
 int main() {
     std::mt19937 gen;
     std::uniform_real_distribution<> dis(0., 1.);
+    std::vector<Coords1D> batch;
     const RExp::RAxisConfig cfg = {NUM_BINS, 0., 1.};
 
     // Unoptimized sequential Fill() pattern
@@ -53,22 +54,21 @@ int main() {
     //
     // Amortizes some of the indirection.
     //
-    std::vector<Coords1D> buffer;
-    buffer.reserve(BATCH_SIZE);
+    batch.reserve(BATCH_SIZE);
     time_it("Manually-batched FillN()", [&] {
         Hist1D hist{cfg};
         for ( size_t i = 0; i < NUM_ITERS / BATCH_SIZE; ++i ) {
+            batch.clear();
             for ( size_t j = 0; j < BATCH_SIZE; ++j ) {
-                buffer.push_back({dis(gen)});
+                batch.push_back({dis(gen)});
             }
-            hist.FillN(buffer);
-            buffer.clear();
+            hist.FillN(batch);
         }
     });
 
     // Let ROOT7 do the batch insertion work for us
     //
-    // Should be slightly slower than manual batching because RHistBufferedFill
+    // Can be slightly slower than manual batching because RHistBufferedFill
     // buffers and records weights even when we don't need them.
     //
     time_it("ROOT-batched Fill()", [&] {
@@ -77,7 +77,21 @@ int main() {
         for ( size_t i = 0; i < NUM_ITERS; ++i ) {
             buf_hist.Fill({dis(gen)});
         }
+        buf_hist.Flush();
     });
+
+    // TODO: Manually batched RHistConcurrentFillManager
+    // TODO: Auto-batched RHistConcurrentFillManager
+    // TODO: Single-threaded RHistConcurrentFiller
+    // TODO: Multi-threaded RHistConcurrentFillManager
+    // TODO: Multi-threaded RHistConcurrentFiller
+    // TODO: Parallel fill using seqcst atomics strategy
+    // TODO: Parallel fill using relaxed atomics strategy
+    // TODO: Parallel fill using thread-local strategy
+
+    // TODO: And besides benchmarking & perf studies, in a different program...
+    //       - Convert final histogram to ROOT 6 format
+    //       - Write ROOT 6 histogram to file as a proof of concept.
 
     return 0;
 }
