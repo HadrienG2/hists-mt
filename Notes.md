@@ -54,3 +54,5 @@
       work around.
     * Would be nice to start with a consolidated microbenchmark that merges all
       the existing ones into one.
+    * To get this kind of histogram to work with atomics, I'll need some custom
+      float type whose members compile down to relaxed atomic ops.
