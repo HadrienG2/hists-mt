@@ -13,7 +13,9 @@
         - Sadly, these examples are written in ROOT style and don't even have
           a `main()` function, must be tweaked before they are usable.
 
-- Test builds with `g++ -O3 -march=native -std=c++17 -pthread -lCore -lHist`
+- Build with `g++ -O3 -march=native -std=c++17 -pthread -lCore -lHist foo.cxx`
+    * Container setup: `docker run --rm -it -v `pwd`/hists:/mnt root-6.18-dev`
+    * Then call `source /usr/local/bin/thisroot.sh`
 
 - What ROOT 7 `hist` provides...
     * Mostly headers, a little bit of impl extracted in `src`, and some tests
