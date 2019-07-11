@@ -40,7 +40,7 @@ public:
         static const float a = (AXIS_RANGE.second - AXIS_RANGE.first)
                                    / (RNG::max() - RNG::min());
         static const float b = AXIS_RANGE.first;
-        return a * m_gen() + b;
+        return { a * m_gen() + b };
     }
 
     // Skip N random rolls
@@ -190,6 +190,12 @@ void bench_batch()
     //       - Use std::atomic<BinData> as bin data type
     //       - Use a specialized variant of std::atomic that performes relaxed
     //         atomic operations instead of sequentially consistent ones.
+    //
+    //       Will probably want to factor out redundant parts from the MT test
+    //       harness above when that time comes.
+    //
+    //       Not sure how compatible these other sync strategies are with
+    //       complex binning schemes such as growable axes.
 
     std::cout << std::endl;
 }
