@@ -86,7 +86,7 @@ void bench(const std::string& name,
 // BATCH_SIZE should be a power of 2 in order to evenly divide NUM_ITERS
 //
 template <size_t BATCH_SIZE>
-void bench_batch()
+void batch_benches()
 {
     std::cout << "=== BATCH SIZE: " << BATCH_SIZE << " ===" << std::endl;
 
@@ -222,14 +222,14 @@ int main()
     std::cout << std::endl;
 
     // So, I heard that C++ doesn't have constexpr for loops...
-    bench_batch<1>();
-    bench_batch<8>();
-    bench_batch<128>();
-    bench_batch<1024>();
-    bench_batch<2048>();
-    bench_batch<4096>();
-    bench_batch<8192>();
-    bench_batch<16384>();
+    batch_benches<1>();
+    batch_benches<8>();
+    batch_benches<128>();
+    batch_benches<1024>();
+    batch_benches<2048>();
+    batch_benches<4096>();
+    batch_benches<8192>();
+    batch_benches<16384>();
 
     // TODO: Besides benchmarking & perf studies, in a different program...
     //       - Convert final histogram to ROOT 6 format
