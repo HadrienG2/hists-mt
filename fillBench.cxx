@@ -3,6 +3,8 @@
 #include "ROOT/RHistBufferedFill.hxx"
 
 #include <chrono>
+#include <exception>
+#include <functional>
 #include <iostream>
 #include <random>
 
@@ -18,25 +20,29 @@ constexpr size_t NUM_ITERS = 300 * 1000 * 1000;
 // For now, we'll be studying 1D hists with integer bins
 using Hist1D = RExp::RHist<1, size_t>;
 
-// Just a simplistic microbenchmark harness
-template <typename FUNC>
-void time_it(const std::string& name, FUNC&& do_work) {
+// Basic microbenchmark harness
+void time_it(const std::string& name,
+             std::function<size_t(Hist1D&&)>&& do_work)
+{
     using namespace std::chrono;
 
-    Hist1D hist{{NUM_BINS, 0., 1.}};
-
     auto start = high_resolution_clock::now();
-    do_work(hist);
+    size_t num_entries = do_work(Hist1D{{NUM_BINS, 0., 1.}});
     auto end = high_resolution_clock::now();
 
-    auto time_span = duration_cast<duration<float, std::nano>>(end - start)
-                         / NUM_ITERS;
+    if ( num_entries != NUM_ITERS ) {
+        throw std::runtime_error("Bad number of histogram entries");
+    }
+
+    auto nanos_per_iter = duration_cast<duration<float, std::nano>>(end - start)
+                          / NUM_ITERS;
     std::cout << "* " << name
-              << " -> " << time_span.count() << " ns/iter" << std::endl;
+              << " -> " << nanos_per_iter.count() << " ns/iter" << std::endl;
 }
 
-// ...and we're ready to go.
-int main() {
+// Top-level benchmark
+int main()
+{
     std::mt19937 gen;
     std::uniform_real_distribution<> dis(0., 1.);
 
@@ -44,17 +50,18 @@ int main() {
     //
     // Pretty slow, as ROOT histograms have quite a few layers of indirection...
     //
-    time_it("Scalar Fill()", [&](Hist1D& hist) {
+    time_it("Scalar Fill()", [&](Hist1D&& hist) -> size_t {
         for ( size_t i = 0; i < NUM_ITERS; ++i ) {
             hist.Fill({dis(gen)});
         }
+        return hist.GetEntries();
     });
 
     // Manually insert data points in batches using FillN()
     //
     // Amortizes some of the indirection.
     //
-    time_it("Manually-batched FillN()", [&](Hist1D& hist) {
+    time_it("Manually-batched FillN()", [&](Hist1D&& hist) -> size_t {
         std::vector<RExp::Hist::RCoordArray<1>> batch;
         batch.reserve(BATCH_SIZE);
         for ( size_t i = 0; i < NUM_ITERS / BATCH_SIZE; ++i ) {
@@ -64,6 +71,7 @@ int main() {
             }
             hist.FillN(batch);
         }
+        return hist.GetEntries();
     });
 
     // Let ROOT7 do the batch insertion work for us
@@ -71,12 +79,13 @@ int main() {
     // Can be slightly slower than manual batching because RHistBufferedFill
     // buffers and records weights even when we don't need them.
     //
-    time_it("ROOT-batched Fill()", [&](Hist1D& hist) {
+    time_it("ROOT-batched Fill()", [&](Hist1D&& hist) -> size_t {
         RExp::RHistBufferedFill<Hist1D, BATCH_SIZE> buf_hist{hist};
         for ( size_t i = 0; i < NUM_ITERS; ++i ) {
             buf_hist.Fill({dis(gen)});
         }
         buf_hist.Flush();
+        return hist.GetEntries();
     });
 
     // Sequential use of RHistConcurrentFiller
@@ -84,13 +93,14 @@ int main() {
     // Combines batching akin to the one of RHistBufferedFill with mutex
     // protection on the histogram of interest.
     //
-    time_it("Serial Fill() from conc filler", [&](Hist1D& hist) {
+    time_it("Serial Fill() from conc filler", [&](Hist1D&& hist) -> size_t {
         RExp::RHistConcurrentFillManager<Hist1D, BATCH_SIZE> conc_hist{hist};
         auto conc_hist_filler = conc_hist.MakeFiller();
         for ( size_t i = 0; i < NUM_ITERS; ++i ) {
             conc_hist_filler.Fill({dis(gen)});
         }
         conc_hist_filler.Flush();
+        return hist.GetEntries();
     });
 
     // TODO: Test with various batch sizes
