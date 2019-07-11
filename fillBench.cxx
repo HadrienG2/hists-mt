@@ -59,6 +59,7 @@ void bench(const std::string& name,
     using namespace std::chrono;
     std::cout << "* " << name;
 
+    // Run benchmark
     auto start = high_resolution_clock::now();
     Hist1D hist = work(Hist1D{{NUM_BINS,
                                AXIS_RANGE.first,
@@ -66,6 +67,7 @@ void bench(const std::string& name,
                        RandomCoords{});
     auto end = high_resolution_clock::now();
 
+    // Check output histogram
     if ( hist.GetEntries() != NUM_ITERS ) {
         throw std::runtime_error("Bad number of histogram entries");
     }
@@ -74,6 +76,7 @@ void bench(const std::string& name,
     //       - Check that number & contents of bins are identical for next runs
     //       - Can also dive into GetImpl, at a future compatibility cost.
 
+    // Print measured timing
     auto nanos_per_iter = duration_cast<duration<float, std::nano>>(end - start)
                               / NUM_ITERS;
     std::cout << " -> " << nanos_per_iter.count() << " ns/iter" << std::endl;
