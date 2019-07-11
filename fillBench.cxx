@@ -69,7 +69,7 @@ void bench(const std::string& name,
     if ( hist.GetEntries() != NUM_ITERS ) {
         throw std::runtime_error("Bad number of histogram entries");
     }
-    // TODO: More correctness assersions would be nice:
+    // TODO: More correctness assertions would be nice:
     //       - Record output of first benchmark run
     //       - Check that number & contents of bins are identical for other runs
     //       - Can also dive into GetImpl, at a future compatibility cost.
