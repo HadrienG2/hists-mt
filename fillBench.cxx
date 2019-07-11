@@ -20,6 +20,11 @@ constexpr size_t NUM_ITERS = 512 * 1024 * 1024;  // Should be a power of 2
 constexpr std::pair<float, float> AXIS_RANGE = {0., 1.};
 
 // For now, we'll be studying 1D hists with integer bins
+//
+// TODO: Also test with float bins. This will complicate output comparisons due
+//       to lack of associativity, but is a more realistic scenario that may
+//       also be more difficult for the "atomic" implementation (no fetch_add).
+//
 using Hist1D = RExp::RHist<1, size_t>;
 
 
