@@ -1,0 +1,58 @@
+---------------------------------------------
+Measurements done on...
+* Intel(R) Xeon(R) CPU E5-1620 v3 @ 3.50GHz
+* Linux v5.1.16
+* ROOT v6.18.0
+* g++ v9.1.1 with -O3 -march=native flags
+---------------------------------------------
+
+=== NO BATCHING ===
+* Scalar Fill() -> 17.5302 ns/iter
+
+=== BATCH SIZE: 1 ===
+* Manually-batched FillN() -> 17.6633 ns/iter
+* ROOT-batched Fill() -> 19.5976 ns/iter
+* Serial "concurrent" Fill() -> 40.804 ns/iter
+* Parallel concurrent Fill() -> 262.484 ns/iter
+
+=== BATCH SIZE: 8 ===
+* Manually-batched FillN() -> 11.2959 ns/iter
+* ROOT-batched Fill() -> 11.67 ns/iter
+* Serial "concurrent" Fill() -> 14.669 ns/iter
+* Parallel concurrent Fill() -> 71.4806 ns/iter
+
+=== BATCH SIZE: 128 ===
+* Manually-batched FillN() -> 10.8944 ns/iter
+* ROOT-batched Fill() -> 11.2895 ns/iter
+* Serial "concurrent" Fill() -> 11.4532 ns/iter
+* Parallel concurrent Fill() -> 32.411 ns/iter
+
+=== BATCH SIZE: 1024 ===
+* Manually-batched FillN() -> 10.8805 ns/iter
+* ROOT-batched Fill() -> 11.2254 ns/iter
+* Serial "concurrent" Fill() -> 11.2548 ns/iter
+* Parallel concurrent Fill() -> 20.6486 ns/iter
+
+=== BATCH SIZE: 2048 ===
+* Manually-batched FillN() -> 10.8863 ns/iter
+* ROOT-batched Fill() -> 11.2233 ns/iter
+* Serial "concurrent" Fill() -> 11.2437 ns/iter
+* Parallel concurrent Fill() -> 12.2776 ns/iter
+
+=== BATCH SIZE: 4096 ===
+* Manually-batched FillN() -> 10.8775 ns/iter
+* ROOT-batched Fill() -> 11.3341 ns/iter
+* Serial "concurrent" Fill() -> 11.3045 ns/iter
+* Parallel concurrent Fill() -> 11.2967 ns/iter
+
+=== BATCH SIZE: 8192 ===
+* Manually-batched FillN() -> 10.9159 ns/iter
+* ROOT-batched Fill() -> 11.2532 ns/iter
+* Serial "concurrent" Fill() -> 11.2125 ns/iter
+* Parallel concurrent Fill() -> 20.6429 ns/iter
+
+=== BATCH SIZE: 16384 ===
+* Manually-batched FillN() -> 10.8727 ns/iter
+* ROOT-batched Fill() -> 11.2247 ns/iter
+* Serial "concurrent" Fill() -> 11.2267 ns/iter
+* Parallel concurrent Fill() -> 19.4955 ns/iter
