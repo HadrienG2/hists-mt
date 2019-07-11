@@ -53,16 +53,16 @@ private:
 
 // Basic microbenchmark harness
 void bench(const std::string& name,
-           std::function<Hist1D(Hist1D&&, RandomCoords&&)>&& do_work)
+           std::function<Hist1D(Hist1D&&, RandomCoords&&)>&& work)
 {
     using namespace std::chrono;
     std::cout << "* " << name;
 
     auto start = high_resolution_clock::now();
-    Hist1D hist = do_work(Hist1D{{NUM_BINS,
-                                  AXIS_RANGE.first,
-                                  AXIS_RANGE.second}},
-                          RandomCoords{});
+    Hist1D hist = work(Hist1D{{NUM_BINS,
+                               AXIS_RANGE.first,
+                               AXIS_RANGE.second}},
+                       RandomCoords{});
     auto end = high_resolution_clock::now();
 
     if ( hist.GetEntries() != NUM_ITERS ) {
