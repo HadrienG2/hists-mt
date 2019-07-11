@@ -13,21 +13,28 @@
 namespace RExp = ROOT::Experimental;
 
 // Benchmark tuning knobs
-constexpr size_t NUM_BINS = 1000;
-constexpr size_t BATCH_SIZE = 1000;  // Should be a divisor of NUM_ITERS
-constexpr size_t NUM_ITERS = 300 * 1000 * 1000;
+constexpr size_t NUM_BINS = 1000;  // Must tune this when testing atomic bins
+constexpr size_t NUM_ITERS = 256 * 1024 * 1024;  // Should be a power of 2
+constexpr std::pair<float, float> AXIS_RANGE = {0., 1.};
 
 // For now, we'll be studying 1D hists with integer bins
 using Hist1D = RExp::RHist<1, size_t>;
 
+// Source of randomness. Global for now, will change for threaded benchmarks...
+std::mt19937 gen;
+std::uniform_real_distribution<> dis(AXIS_RANGE.first, AXIS_RANGE.second);
+
+
 // Basic microbenchmark harness
-void time_it(const std::string& name,
+void bench(const std::string& name,
              std::function<Hist1D(Hist1D&&)>&& do_work)
 {
     using namespace std::chrono;
 
     auto start = high_resolution_clock::now();
-    Hist1D hist = do_work(Hist1D{{NUM_BINS, 0., 1.}});
+    Hist1D hist = do_work(Hist1D{{NUM_BINS,
+                                  AXIS_RANGE.first,
+                                  AXIS_RANGE.second}});
     auto end = high_resolution_clock::now();
 
     if ( hist.GetEntries() != NUM_ITERS ) {
@@ -40,28 +47,19 @@ void time_it(const std::string& name,
               << " -> " << nanos_per_iter.count() << " ns/iter" << std::endl;
 }
 
-// Top-level benchmark
-int main()
-{
-    std::mt19937 gen;
-    std::uniform_real_distribution<> dis(0., 1.);
 
-    // Unoptimized sequential Fill() pattern
-    //
-    // Pretty slow, as ROOT histograms have quite a few layers of indirection...
-    //
-    time_it("Scalar Fill()", [&](Hist1D&& hist) -> Hist1D {
-        for ( size_t i = 0; i < NUM_ITERS; ++i ) {
-            hist.Fill({dis(gen)});
-        }
-        return hist;
-    });
+// Some benchmarks depend on a batch size parameter that must be known at
+// compile time. We need to generate those using a template.
+template <size_t BATCH_SIZE>
+void bench_batch()
+{
+    std::cout << "=== BATCH SIZE: " << BATCH_SIZE << " ===" << std::endl;
 
     // Manually insert data points in batches using FillN()
     //
     // Amortizes some of the indirection.
     //
-    time_it("Manually-batched FillN()", [&](Hist1D&& hist) -> Hist1D {
+    bench("Manually-batched FillN()", [&](Hist1D&& hist) -> Hist1D {
         std::vector<RExp::Hist::RCoordArray<1>> batch;
         batch.reserve(BATCH_SIZE);
         for ( size_t i = 0; i < NUM_ITERS / BATCH_SIZE; ++i ) {
@@ -79,7 +77,7 @@ int main()
     // Can be slightly slower than manual batching because RHistBufferedFill
     // buffers and records weights even when we don't need them.
     //
-    time_it("ROOT-batched Fill()", [&](Hist1D&& hist) -> Hist1D {
+    bench("ROOT-batched Fill()", [&](Hist1D&& hist) -> Hist1D {
         RExp::RHistBufferedFill<Hist1D, BATCH_SIZE> buf_hist{hist};
         for ( size_t i = 0; i < NUM_ITERS; ++i ) {
             buf_hist.Fill({dis(gen)});
@@ -93,7 +91,7 @@ int main()
     // Combines batching akin to the one of RHistBufferedFill with mutex
     // protection on the histogram of interest.
     //
-    time_it("Serial Fill() from conc filler", [&](Hist1D&& hist) -> Hist1D {
+    bench("Serial Fill() from conc filler", [&](Hist1D&& hist) -> Hist1D {
         RExp::RHistConcurrentFillManager<Hist1D, BATCH_SIZE> conc_hist{hist};
         auto conc_hist_filler = conc_hist.MakeFiller();
         for ( size_t i = 0; i < NUM_ITERS; ++i ) {
@@ -103,7 +101,46 @@ int main()
         return hist;
     });
 
-    // TODO: Test with various batch sizes
+    std::cout << std::endl;
+}
+
+
+// Top-level benchmark logic
+int main()
+{
+    std::cout << "=== NO BATCHING ===" << std::endl;
+
+    // Unoptimized sequential Fill() pattern
+    //
+    // Pretty slow, as ROOT histograms have quite a few layers of indirection...
+    //
+    bench("Scalar Fill()", [&](Hist1D&& hist) -> Hist1D {
+        for ( size_t i = 0; i < NUM_ITERS; ++i ) {
+            hist.Fill({dis(gen)});
+        }
+        return hist;
+    });
+
+    std::cout << std::endl;
+
+    // So, I heard that C++ doesn't have constexpr for loops, and in the
+    // interest of keeping this code readable I don't want to hack around this
+    // via recursive templated function calls...
+    bench_batch<1>();
+    bench_batch<2>();
+    bench_batch<4>();
+    bench_batch<8>();
+    bench_batch<16>();
+    bench_batch<32>();
+    bench_batch<64>();
+    bench_batch<128>();
+    bench_batch<256>();
+    bench_batch<512>();
+    bench_batch<1024>();
+    bench_batch<2048>();
+    bench_batch<4096>();
+    bench_batch<8192>();
+
     // TODO: Multi-threaded benchmarks
     // TODO: Other strategies (seqcst atomics, relaxed atomics, thread-local...)
 
