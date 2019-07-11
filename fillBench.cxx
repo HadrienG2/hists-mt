@@ -71,7 +71,7 @@ void bench(const std::string& name,
     }
     // TODO: More correctness assertions would be nice:
     //       - Record output of first benchmark run
-    //       - Check that number & contents of bins are identical for other runs
+    //       - Check that number & contents of bins are identical for next runs
     //       - Can also dive into GetImpl, at a future compatibility cost.
 
     auto nanos_per_iter = duration_cast<duration<float, std::nano>>(end - start)
