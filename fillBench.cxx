@@ -25,9 +25,12 @@ template <typename FUNC>
 void time_it(const std::string& name, FUNC&& do_work) {
     using namespace std::chrono;
 
+    Hist1D hist{cfg};
+
     auto start = high_resolution_clock::now();
-    do_work();
+    do_work(hist);
     auto end = high_resolution_clock::now();
+
     auto time_span = duration_cast<duration<float, std::nano>>(end - start) / NUM_ITERS;
     std::cout << name << " -> " << time_span.count() << " ns/iter" << std::endl;
 }
@@ -43,8 +46,7 @@ int main() {
     //
     // Pretty slow, as ROOT histograms have quite a few layers of indirection...
     //
-    time_it("Scalar Fill()", [&] {
-        Hist1D hist{cfg};
+    time_it("Scalar Fill()", [&](Hist1D& hist) {
         for ( size_t i = 0; i < NUM_ITERS; ++i ) {
             hist.Fill({dis(gen)});
         }
@@ -55,8 +57,7 @@ int main() {
     // Amortizes some of the indirection.
     //
     batch.reserve(BATCH_SIZE);
-    time_it("Manually-batched FillN()", [&] {
-        Hist1D hist{cfg};
+    time_it("Manually-batched FillN()", [&](Hist1D& hist) {
         for ( size_t i = 0; i < NUM_ITERS / BATCH_SIZE; ++i ) {
             batch.clear();
             for ( size_t j = 0; j < BATCH_SIZE; ++j ) {
@@ -71,8 +72,7 @@ int main() {
     // Can be slightly slower than manual batching because RHistBufferedFill
     // buffers and records weights even when we don't need them.
     //
-    time_it("ROOT-batched Fill()", [&] {
-        Hist1D hist{cfg};
+    time_it("ROOT-batched Fill()", [&](Hist1D& hist) {
         BufHist1D buf_hist{hist};
         for ( size_t i = 0; i < NUM_ITERS; ++i ) {
             buf_hist.Fill({dis(gen)});
