@@ -51,6 +51,7 @@ private:
     RNG m_gen;
 };
 
+
 // Basic microbenchmark harness
 void bench(const std::string& name,
            std::function<Hist1D(Hist1D&&, RandomCoords&&)>&& work)
