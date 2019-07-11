@@ -75,7 +75,7 @@ void bench(const std::string& name,
     //       - Can also dive into GetImpl, at a future compatibility cost.
 
     auto nanos_per_iter = duration_cast<duration<float, std::nano>>(end - start)
-                          / NUM_ITERS;
+                              / NUM_ITERS;
     std::cout << " -> " << nanos_per_iter.count() << " ns/iter" << std::endl;
 }
 
