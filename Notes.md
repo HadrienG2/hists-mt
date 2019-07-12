@@ -14,7 +14,7 @@
           a `main()` function, must be tweaked before they are usable.
 
 - Build with `g++ -O3 -march=native -std=c++17 -pthread -lCore -lHist foo.cxx`
-    * Container setup: `docker run --rm -it -v `pwd`/hists:/mnt root-6.18-dev`
+    * Container setup: `docker run --rm -it -v `pwd`/hists-mt:/mnt root-6.18-dev`
     * Then call `export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH`
 
 - What ROOT 7 `hist` provides...
