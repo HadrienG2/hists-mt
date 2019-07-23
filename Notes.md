@@ -92,3 +92,24 @@
           around ~2048 data points on this 8-thread configuraiton.
 
 ![Plot of the benchmark results](./FillBenchResults.png)
+
+- General plan for ROOT 7 -> ROOT 6 histogram conversion
+    * Somehow, make sure that all RHistConcurrentFiller have flushed their
+      buffers to the underlying RHist
+        - Will require cooperation from the framework?
+        - RHist, by itself, isn't aware of the existence of fillers, and
+          therefore cannot ask them to flush.
+        - An RHist wrapper could provide this functionality, at the cost of a
+          complicated synchronization protocol.
+        - It's probably better to make sure that Marlin processors flush their
+          thread-local data... whenever they need to.
+    * Setup a blank ROOT 6 histogram whose axis configuration matches that of
+      the input RHist
+        - If possible, otherwise raise either a compilation or runtime error
+    * Transfer the statistical data from the ROOT 7 histogram to the ROOT 6 one
+        - This implies a ROOT 7 histogram type containing all the data used by
+          ROOT 6, including fTsumwx and friends.
+        - Either that, or the data must be reconstructible from the contents of
+          the histogram bins. E.g. fTsumwx2 can be reconstructed if each bins
+          has recorded sumw2 information.
+    * Hand over the ROOT 6 histogram to the user, cross fingers.
