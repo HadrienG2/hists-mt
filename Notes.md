@@ -67,3 +67,28 @@
 
 - Another bug: `RHistConcurrentFiller::GetHist()` and friends map to a
   nonexistent method of `RHistConcurrentFillManager`.
+
+- The new `fillBench.cxx` is a superset of the `concurrentfill` and `perf`
+  microbenchmarks provided by ROOT 7. It measures...
+    * How advantageous batching `Fill()` calls with `FillN()` is, and what is
+      the minimal granularity to achieve optimal performance.
+        - Answer: Batched fills can be ~2x faster, optimal performance is
+          already achieved with small batch sizes of 4 data points.
+    * How ROOT 7's automatic `Fill()` batching mechanism compares to manual fill
+      batching when all data has the same weight.
+        - Answer: Asymptotically a bit slower (as it records weights), but very
+          close. Need a bit more data points to amortize too, around 16.
+    * What kind of slowdown one can expect from using concurrent histograms in
+      sequential code. That's basically the overhead of an uncontended mutex,
+      and gives a hint of the right buffer size for uncontended histograms.
+        - Answer: Can be as fast as a non-concurrent histogram, but with much
+          larger buffers. The optimum is reached with ~100 data points.
+    * What kind of slowdown one can expect from using concurrent histograms
+      under intense parallel pressure. That's an indicator of how far the buffer
+      size may need to be increased when a histogram is contended.
+        - Answer: As always, adding threads makes benchmarking more complex. In
+          this particular case, this is due to CPU downclocking interacting with
+          synchronization in complex ways. In any case, an optimum is reached
+          around ~2048 data points on this 8-thread configuraiton.
+
+![Plot of the benchmark results](./FillBenchResults.png)

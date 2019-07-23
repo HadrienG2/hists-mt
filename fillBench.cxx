@@ -231,13 +231,22 @@ int main()
 
     // So, I heard that C++ doesn't have constexpr for loops...
     batch_benches<1>();
+    batch_benches<2>();
+    batch_benches<4>();
     batch_benches<8>();
+    batch_benches<16>();
+    batch_benches<32>();
+    batch_benches<64>();
     batch_benches<128>();
+    batch_benches<256>();
+    batch_benches<512>();
     batch_benches<1024>();
     batch_benches<2048>();
     batch_benches<4096>();
     batch_benches<8192>();
     batch_benches<16384>();
+    batch_benches<32768>();
+    batch_benches<65536>();
 
     // TODO: Besides benchmarking & perf studies, in a different program...
     //       - Convert final histogram to ROOT 6 format

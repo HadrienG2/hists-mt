@@ -7,52 +7,106 @@ Measurements done on...
 ---------------------------------------------
 
 === NO BATCHING ===
-* Scalar Fill() -> 17.5302 ns/iter
+* Scalar Fill() -> 17.5475 ns/iter
 
 === BATCH SIZE: 1 ===
-* Manually-batched FillN() -> 17.6633 ns/iter
-* ROOT-batched Fill() -> 19.5976 ns/iter
-* Serial "concurrent" Fill() -> 40.804 ns/iter
-* Parallel concurrent Fill() -> 262.484 ns/iter
+* Manually-batched FillN() -> 18.3378 ns/iter
+* ROOT-batched Fill() -> 19.5739 ns/iter
+* Serial "concurrent" Fill() -> 38.8644 ns/iter
+* Parallel concurrent Fill() -> 264.403 ns/iter
+
+=== BATCH SIZE: 2 ===
+* Manually-batched FillN() -> 12.7203 ns/iter
+* ROOT-batched Fill() -> 13.7502 ns/iter
+* Serial "concurrent" Fill() -> 25.061 ns/iter
+* Parallel concurrent Fill() -> 158.703 ns/iter
+
+=== BATCH SIZE: 4 ===
+* Manually-batched FillN() -> 11.0671 ns/iter
+* ROOT-batched Fill() -> 12.2814 ns/iter
+* Serial "concurrent" Fill() -> 18.2608 ns/iter
+* Parallel concurrent Fill() -> 103.865 ns/iter
 
 === BATCH SIZE: 8 ===
-* Manually-batched FillN() -> 11.2959 ns/iter
-* ROOT-batched Fill() -> 11.67 ns/iter
-* Serial "concurrent" Fill() -> 14.669 ns/iter
-* Parallel concurrent Fill() -> 71.4806 ns/iter
+* Manually-batched FillN() -> 11.0909 ns/iter
+* ROOT-batched Fill() -> 11.665 ns/iter
+* Serial "concurrent" Fill() -> 14.689 ns/iter
+* Parallel concurrent Fill() -> 71.6757 ns/iter
+
+=== BATCH SIZE: 16 ===
+* Manually-batched FillN() -> 11.1739 ns/iter
+* ROOT-batched Fill() -> 11.4366 ns/iter
+* Serial "concurrent" Fill() -> 12.9092 ns/iter
+* Parallel concurrent Fill() -> 50.1718 ns/iter
+
+=== BATCH SIZE: 32 ===
+* Manually-batched FillN() -> 10.9737 ns/iter
+* ROOT-batched Fill() -> 11.3376 ns/iter
+* Serial "concurrent" Fill() -> 12.067 ns/iter
+* Parallel concurrent Fill() -> 34.2736 ns/iter
+
+=== BATCH SIZE: 64 ===
+* Manually-batched FillN() -> 10.9706 ns/iter
+* ROOT-batched Fill() -> 11.3984 ns/iter
+* Serial "concurrent" Fill() -> 11.7259 ns/iter
+* Parallel concurrent Fill() -> 43.7521 ns/iter
 
 === BATCH SIZE: 128 ===
-* Manually-batched FillN() -> 10.8944 ns/iter
-* ROOT-batched Fill() -> 11.2895 ns/iter
-* Serial "concurrent" Fill() -> 11.4532 ns/iter
-* Parallel concurrent Fill() -> 32.411 ns/iter
+* Manually-batched FillN() -> 11.0157 ns/iter
+* ROOT-batched Fill() -> 11.2873 ns/iter
+* Serial "concurrent" Fill() -> 11.4686 ns/iter
+* Parallel concurrent Fill() -> 33.3838 ns/iter
+
+=== BATCH SIZE: 256 ===
+* Manually-batched FillN() -> 10.9678 ns/iter
+* ROOT-batched Fill() -> 11.2969 ns/iter
+* Serial "concurrent" Fill() -> 11.4013 ns/iter
+* Parallel concurrent Fill() -> 36.1504 ns/iter
+
+=== BATCH SIZE: 512 ===
+* Manually-batched FillN() -> 10.9192 ns/iter
+* ROOT-batched Fill() -> 11.3055 ns/iter
+* Serial "concurrent" Fill() -> 11.2933 ns/iter
+* Parallel concurrent Fill() -> 31.5046 ns/iter
 
 === BATCH SIZE: 1024 ===
-* Manually-batched FillN() -> 10.8805 ns/iter
-* ROOT-batched Fill() -> 11.2254 ns/iter
-* Serial "concurrent" Fill() -> 11.2548 ns/iter
-* Parallel concurrent Fill() -> 20.6486 ns/iter
+* Manually-batched FillN() -> 10.9088 ns/iter
+* ROOT-batched Fill() -> 11.244 ns/iter
+* Serial "concurrent" Fill() -> 11.2669 ns/iter
+* Parallel concurrent Fill() -> 19.8321 ns/iter
 
 === BATCH SIZE: 2048 ===
-* Manually-batched FillN() -> 10.8863 ns/iter
-* ROOT-batched Fill() -> 11.2233 ns/iter
-* Serial "concurrent" Fill() -> 11.2437 ns/iter
-* Parallel concurrent Fill() -> 12.2776 ns/iter
+* Manually-batched FillN() -> 10.9263 ns/iter
+* ROOT-batched Fill() -> 11.2514 ns/iter
+* Serial "concurrent" Fill() -> 11.2875 ns/iter
+* Parallel concurrent Fill() -> 11.6496 ns/iter
 
 === BATCH SIZE: 4096 ===
-* Manually-batched FillN() -> 10.8775 ns/iter
-* ROOT-batched Fill() -> 11.3341 ns/iter
-* Serial "concurrent" Fill() -> 11.3045 ns/iter
-* Parallel concurrent Fill() -> 11.2967 ns/iter
+* Manually-batched FillN() -> 10.9094 ns/iter
+* ROOT-batched Fill() -> 11.2685 ns/iter
+* Serial "concurrent" Fill() -> 11.2621 ns/iter
+* Parallel concurrent Fill() -> 11.5462 ns/iter
 
 === BATCH SIZE: 8192 ===
-* Manually-batched FillN() -> 10.9159 ns/iter
-* ROOT-batched Fill() -> 11.2532 ns/iter
-* Serial "concurrent" Fill() -> 11.2125 ns/iter
-* Parallel concurrent Fill() -> 20.6429 ns/iter
+* Manually-batched FillN() -> 10.8861 ns/iter
+* ROOT-batched Fill() -> 11.2431 ns/iter
+* Serial "concurrent" Fill() -> 11.2405 ns/iter
+* Parallel concurrent Fill() -> 19.5642 ns/iter
 
 === BATCH SIZE: 16384 ===
-* Manually-batched FillN() -> 10.8727 ns/iter
-* ROOT-batched Fill() -> 11.2247 ns/iter
-* Serial "concurrent" Fill() -> 11.2267 ns/iter
-* Parallel concurrent Fill() -> 19.4955 ns/iter
+* Manually-batched FillN() -> 10.9119 ns/iter
+* ROOT-batched Fill() -> 11.2856 ns/iter
+* Serial "concurrent" Fill() -> 11.2485 ns/iter
+* Parallel concurrent Fill() -> 17.7279 ns/iter
+
+=== BATCH SIZE: 32768 ===
+* Manually-batched FillN() -> 10.9129 ns/iter
+* ROOT-batched Fill() -> 11.256 ns/iter
+* Serial "concurrent" Fill() -> 11.2578 ns/iter
+* Parallel concurrent Fill() -> 18.2741 ns/iter
+
+=== BATCH SIZE: 65536 ===
+* Manually-batched FillN() -> 10.9525 ns/iter
+* ROOT-batched Fill() -> 11.2658 ns/iter
+* Serial "concurrent" Fill() -> 11.2626 ns/iter
+* Parallel concurrent Fill() -> 18.9247 ns/iter
