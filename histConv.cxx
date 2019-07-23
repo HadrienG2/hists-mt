@@ -51,22 +51,34 @@ namespace detail
             // Make sure the histogram's impl-pointer is set
             const auto* impl_ptr = hist.GetImpl();
             if (impl_ptr == nullptr) {
-                throw std::runtime_error("Histogram with null impl pointer");
+                throw std::runtime_error("Histogram has a null impl pointer");
+            }
+            const auto& impl = *impl_ptr;
+
+            // Escape semicolons in the histogram's title with '#' so that
+            // ROOT 6 does not misinterprete them as axis title headers.
+            std::string title = impl.GetTitle();
+            size_t pos = 0;
+            while(true) {
+                pos = title.find(';', pos);
+                if (pos == std::string::npos) break;
+                title.insert(pos, 1, '#');
+                pos += 2;
             }
 
             // Query the histogram's axis
-            const auto axis_view = impl_ptr->GetAxis(0);
+            const auto axis_view = impl.GetAxis(0);
 
             // If equidistant, dispatch to the equidistant converter
             const auto* eq_view_ptr = axis_view.GetAsEquidistant();
             if (eq_view_ptr != nullptr) {
-                return convert_eq(hist, name);
+                return convert_eq(hist, name, title);
             }
 
             // If irregular, dispatch to the irregular converter
             const auto* irr_view_ptr = axis_view.GetAsIrregular();
             if (irr_view_ptr != nullptr) {
-                return convert_irr(hist, name);
+                return convert_irr(hist, name, title);
             }
 
             // As of ROOT 6.18.0, there is no other axis kind
@@ -75,17 +87,16 @@ namespace detail
 
     private:
         // Conversion function for histograms with equidistant binning
-        static Output convert_eq(const Input& hist, const char* name) {
+        static Output convert_eq(const Input& hist,
+                                 const char* name,
+                                 const std::string& title) {
             // Get back the state that was validated by convert()
             const auto& impl = *hist.GetImpl();
             const auto& eq_view = *impl.GetAxis(0).GetAsEquidistant();
 
             // Create the output histogram
-            //
-            // TODO: Should sanitize the output of GetTitle() for ROOT6 compat
-            //
             TH1C result{name,
-                        impl.GetTitle().c_str(),
+                        title.c_str(),
                         eq_view.GetNBinsNoOver(),
                         eq_view.GetMinimum(),
                         eq_view.GetMaximum()};
@@ -97,16 +108,16 @@ namespace detail
         }
 
         // Conversion function for histograms with irregular binning
-        static Output convert_irr(const Input& hist, const char* name) {
+        static Output convert_irr(const Input& hist,
+                                  const char* name,
+                                  const std::string& title) {
+            // Get back the state that was validated by convert()
             const auto& impl = *hist.GetImpl();
             const auto& irr_view = *impl.GetAxis(0).GetAsIrregular();
 
             // Create the output histogram
-            //
-            // TODO: Should sanitize the output of GetTitle() for ROOT6 compat
-            //
             TH1C result{name,
-                        impl.GetTitle().c_str(),
+                        title.c_str(),
                         irr_view.GetNBinsNoOver(),
                         irr_view.GetBinBorders().data()};
 
