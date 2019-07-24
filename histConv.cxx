@@ -100,7 +100,7 @@ namespace detail
 
             // If the axis is labeled, propagate labels
             //
-            // FIXME: I cannot find a way to go from RAxisView to axis labels.
+            // FIXME: I cannot find a way to go from RAxisView to axis labels!
             //        Even dynamic_casting RAxisEquidistant* to RAxisLabels*
             //        fails because the type is not polymorphic (does not have a
             //        single virtual method). How can I get to those labels?
@@ -115,12 +115,18 @@ namespace detail
                 }
             } */
 
-            // TODO: Propagate histogram data
+            // TODO: Propagate histogram data. What may need to be propagated:
+            //       - Bin content (TYPED per-bin sum of weights)
+            //       - fEntries (number of entries)
+            //       - fTsumw (total sum of weights)
+            //       - fTsumw2 (total sum of square of weights)
+            //       - fTsumwx (total sum of weight*x)
+            //       - fTsumwx2 (total sum of weight*x*x)
+            //       - fSumw2 (per-bin sum of square of weights), if enabled
+            //       - fBinStatErrOpt (stat error configuration)
+            //       - fStatOverflows (stat overflow configuration)
+            //
             /* const auto& stat = impl.GetStat(); */
-
-            // TODO: Go through the TH1 documentation and try to configure it
-            //       as close to a ROOT 7 histogram as possible generally
-            //       speaking (already checked for TAxis, seems OK)
 
             return result;
         }
@@ -142,10 +148,6 @@ namespace detail
 
             // TODO: Once data propagation is live for equidistant axes,
             //       make it work with irregular axes
-
-            // TODO: Go through the TH1 documentation and try to configure it
-            //       as close to a ROOT 7 histogram as possible generally
-            //       speaking (already checked for TAxis, seems OK)
 
             return result;
         }
