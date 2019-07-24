@@ -103,7 +103,7 @@ namespace detail
             // FIXME: I cannot find a way to go from RAxisView to axis labels!
             //        Even dynamic_casting RAxisEquidistant* to RAxisLabels*
             //        fails because the type is not polymorphic (does not have a
-            //        single virtual method). How can I get to those labels?
+            //        single virtual method).
             //
             /* const auto* lbl_axis_ptr =
                 dynamic_cast<const RExp::RAxisLabels*>(&eq_axis);
