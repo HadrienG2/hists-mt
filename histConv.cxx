@@ -189,7 +189,17 @@ namespace detail
     //       utilities from the TH1C converter, deduplicating those.
     //
     //       For 2D+ histogram, I'll also need to check if the bin data is
-    //       ordered in the same way in ROOT 6 and ROOT 7
+    //       ordered in the same way in ROOT 6 and ROOT 7. I should ideally have
+    //       some kind of static assertion that checks that it remains the case
+    //       as ROOT 7 development marches on.
+    //
+    //       Alternatively, I could always work in global bin coordinates, but
+    //       that would greatly reduce my ability to factor out stuff between
+    //       the 1D case and 2D+ cases.
+    //
+    //       I also expect THn to be one super messy edge case. It's probably a
+    //       good idea to keep it a TODO initially, and wait for people to come
+    //       knocking on my door asking for it.
 }
 
 
