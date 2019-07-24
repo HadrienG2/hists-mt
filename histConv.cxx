@@ -1,3 +1,4 @@
+#include "ROOT/RAxis.hxx"
 #include "ROOT/RHist.hxx"
 #include "TH1.h"
 
@@ -53,32 +54,20 @@ namespace detail
             if (impl_ptr == nullptr) {
                 throw std::runtime_error("Histogram has a null impl pointer");
             }
-            const auto& impl = *impl_ptr;
 
-            // Escape semicolons in the histogram's title with '#' so that
-            // ROOT 6 does not misinterprete them as axis title headers.
-            std::string title = impl.GetTitle();
-            size_t pos = 0;
-            while(true) {
-                pos = title.find(';', pos);
-                if (pos == std::string::npos) break;
-                title.insert(pos, 1, '#');
-                pos += 2;
-            }
-
-            // Query the histogram's axis
-            const auto axis_view = impl.GetAxis(0);
+            // Query the histogram's axis kind
+            const auto axis_view = impl_ptr->GetAxis(0);
 
             // If equidistant, dispatch to the equidistant converter
             const auto* eq_view_ptr = axis_view.GetAsEquidistant();
             if (eq_view_ptr != nullptr) {
-                return convert_eq(hist, name, title);
+                return convert_eq(hist, name);
             }
 
             // If irregular, dispatch to the irregular converter
             const auto* irr_view_ptr = axis_view.GetAsIrregular();
             if (irr_view_ptr != nullptr) {
-                return convert_irr(hist, name, title);
+                return convert_irr(hist, name);
             }
 
             // As of ROOT 6.18.0, there is no other axis kind
@@ -86,45 +75,107 @@ namespace detail
         }
 
     private:
+        // TODO: Deduplicate equidistant/irregular conversion
+
         // Conversion function for histograms with equidistant binning
-        static Output convert_eq(const Input& hist,
-                                 const char* name,
-                                 const std::string& title) {
+        static Output convert_eq(const Input& hist, const char* name) {
             // Get back the state that was validated by convert()
             const auto& impl = *hist.GetImpl();
-            const auto& eq_view = *impl.GetAxis(0).GetAsEquidistant();
+            const auto& eq_axis = *impl.GetAxis(0).GetAsEquidistant();
 
             // Create the output histogram
             TH1C result{name,
-                        title.c_str(),
-                        eq_view.GetNBinsNoOver(),
-                        eq_view.GetMinimum(),
-                        eq_view.GetMaximum()};
+                        convert_hist_title(impl.GetTitle()).c_str(),
+                        eq_axis.GetNBinsNoOver(),
+                        eq_axis.GetMinimum(),
+                        eq_axis.GetMaximum()};
 
-            // TODO: Propagate more configuration (e.g. axis titles, labels...)
-            // TODO: Propagage histogram data
+            // Propagate basic axis properties
+            setup_axis_common(result, eq_axis);
+
+            // If the axis is labeled, propagate labels
+            //
+            // FIXME: I cannot find a way to go from RAxisView to axis labels.
+            //        Even dynamic_casting RAxisEquidistant* to RAxisLabels*
+            //        fails because the type is not polymorphic (does not have a
+            //        single virtual method). How can I get to those labels?
+            //
+            /* const auto* lbl_axis_ptr =
+                dynamic_cast<const RExp::RAxisLabels*>(&eq_axis);
+            if (lbl_axis_ptr) {
+                auto labels = lbl_axis_ptr->GetBinLabels();
+                auto& axis = *result.GetXaxis();
+                for (size_t bin = 0; bin < labels.size(); ++bin) {
+                    std::string label{labels[bin]};
+                    axis.SetBinLabel(bin, label.c_str());
+                }
+            } */
+
+            // TODO: Propagage histogram data (impl.GetStat())
+
+            // TODO: Go through the TH1 documentation and try to configure it
+            //       as close to a ROOT 7 histogram as possible generally
+            //       speaking
 
             return result;
         }
 
         // Conversion function for histograms with irregular binning
-        static Output convert_irr(const Input& hist,
-                                  const char* name,
-                                  const std::string& title) {
+        static Output convert_irr(const Input& hist, const char* name) {
             // Get back the state that was validated by convert()
             const auto& impl = *hist.GetImpl();
-            const auto& irr_view = *impl.GetAxis(0).GetAsIrregular();
+            const auto& irr_axis = *impl.GetAxis(0).GetAsIrregular();
 
             // Create the output histogram
             TH1C result{name,
-                        title.c_str(),
-                        irr_view.GetNBinsNoOver(),
-                        irr_view.GetBinBorders().data()};
+                        convert_hist_title(impl.GetTitle()).c_str(),
+                        irr_axis.GetNBinsNoOver(),
+                        irr_axis.GetBinBorders().data()};
 
-            // TODO: Propagate more configuration (e.g. axis titles...)
-            // TODO: Propagage histogram data
+            // Propagate basic axis properties
+            setup_axis_common(result, irr_axis);
+
+            // TODO: Propagage histogram data (impl.GetStat())
+
+            // TODO: Go through the TH1 documentation and try to configure it
+            //       as close to a ROOT 7 histogram as possible generally
+            //       speaking
 
             return result;
+        }
+
+        // Convert a ROOT 7 histogram title into a ROOT 6 histogram title
+        //
+        // To prevent ROOT 6 from misinterpreting free-form histogram titles
+        // from ROOT 7 as a mixture of a histogram title and axis titles, all
+        // semicolons must be escaped with a preceding # character.
+        //
+        static std::string convert_hist_title(const std::string& title) {
+            std::string hist_title = title;
+            size_t pos = 0;
+            while(true) {
+                pos = hist_title.find(';', pos);
+                if (pos == std::string::npos) return hist_title;
+                hist_title.insert(pos, 1, '#');
+                pos += 2;
+            }
+        }
+
+        // Transfer histogram axis settings which exist in both equidistant and
+        // irregular binning configurations
+        static void setup_axis_common(Output& target,
+                                      const RExp::RAxisBase& axis)
+        {
+            // Propagate X axis title
+            target.SetXTitle(axis.GetTitle().c_str());
+
+            // Propagate X axis growability
+            // FIXME: No direct access fo fCanGrow in RAxisBase yet!
+            if (axis.GetNOverflowBins() == 0) {
+                target.SetCanExtend(target.CanExtendAllAxes() | TH1::kXaxis);
+            } else {
+                target.SetCanExtend(target.CanExtendAllAxes() & (~TH1::kXaxis));
+            }
         }
     };
 
