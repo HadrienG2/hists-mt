@@ -39,6 +39,10 @@ namespace detail
 
 
     // RHist<1, char, ...> to TH1C histogram converter
+    //
+    // FIXME: We actually have some requirements on the STATs, which we should
+    //        properly assert via SFINAE to avoid template error horror.
+    //
     template <template <int D_, class P_> class... STAT>
     struct HistConverter<RExp::RHist<1, char, STAT...>>
     {
@@ -91,7 +95,8 @@ namespace detail
                         eq_axis.GetMaximum()};
 
             // Propagate basic axis properties
-            setup_axis_common(result, eq_axis);
+            auto& result_axis = *result.GetXaxis();
+            setup_axis_common(result_axis, eq_axis);
 
             // If the axis is labeled, propagate labels
             //
@@ -104,18 +109,18 @@ namespace detail
                 dynamic_cast<const RExp::RAxisLabels*>(&eq_axis);
             if (lbl_axis_ptr) {
                 auto labels = lbl_axis_ptr->GetBinLabels();
-                auto& axis = *result.GetXaxis();
                 for (size_t bin = 0; bin < labels.size(); ++bin) {
                     std::string label{labels[bin]};
-                    axis.SetBinLabel(bin, label.c_str());
+                    result_axis.SetBinLabel(bin, label.c_str());
                 }
             } */
 
-            // TODO: Propagage histogram data (impl.GetStat())
+            // TODO: Propagate histogram data
+            /* const auto& stat = impl.GetStat(); */
 
             // TODO: Go through the TH1 documentation and try to configure it
             //       as close to a ROOT 7 histogram as possible generally
-            //       speaking
+            //       speaking (already checked for TAxis, seems OK)
 
             return result;
         }
@@ -133,13 +138,14 @@ namespace detail
                         irr_axis.GetBinBorders().data()};
 
             // Propagate basic axis properties
-            setup_axis_common(result, irr_axis);
+            setup_axis_common(*result.GetXaxis(), irr_axis);
 
-            // TODO: Propagage histogram data (impl.GetStat())
+            // TODO: Once data propagation is live for equidistant axes,
+            //       make it work with irregular axes
 
             // TODO: Go through the TH1 documentation and try to configure it
             //       as close to a ROOT 7 histogram as possible generally
-            //       speaking
+            //       speaking (already checked for TAxis, seems OK)
 
             return result;
         }
@@ -163,19 +169,14 @@ namespace detail
 
         // Transfer histogram axis settings which exist in both equidistant and
         // irregular binning configurations
-        static void setup_axis_common(Output& target,
-                                      const RExp::RAxisBase& axis)
+        static void setup_axis_common(TAxis& dest, const RExp::RAxisBase& src)
         {
-            // Propagate X axis title
-            target.SetXTitle(axis.GetTitle().c_str());
+            // Propagate axis title
+            dest.SetTitle(src.GetTitle().c_str());
 
-            // Propagate X axis growability
+            // Propagate axis growability
             // FIXME: No direct access fo fCanGrow in RAxisBase yet!
-            if (axis.GetNOverflowBins() == 0) {
-                target.SetCanExtend(target.CanExtendAllAxes() | TH1::kXaxis);
-            } else {
-                target.SetCanExtend(target.CanExtendAllAxes() & (~TH1::kXaxis));
-            }
+            dest.SetCanExtend((src.GetNOverflowBins() == 0));
         }
     };
 
@@ -184,6 +185,9 @@ namespace detail
     //
     //       At that time, I'll probably want to extract some general-purpose
     //       utilities from the TH1C converter, deduplicating those.
+    //
+    //       For 2D+ histogram, I'll also need to check if the bin data is
+    //       ordered in the same way in ROOT 6 and ROOT 7
 }
 
 
