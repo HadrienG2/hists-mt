@@ -28,7 +28,7 @@ namespace detail
     struct HistConverter
     {
     private:
-        // Evil trick to prevent the static_assert below from firing spuriously
+        // Evil trick to prevent the static_assert below from always firing
         template <typename T> struct always_false: std::false_type {};
 
     public:
