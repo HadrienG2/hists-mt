@@ -113,3 +113,10 @@
           the histogram bins. E.g. fTsumwx2 can be reconstructed if each bins
           has recorded sumw2 information.
     * Hand over the ROOT 6 histogram to the user, cross fingers.
+
+- Possible future discussion with ROOT people: why is fCanGrow an instance
+  property of RAxisBase, given that subclasses already expose it via CanGrow()?
+    * Also, why isn't CanGrow() directly exposed in RAxisBase? I need that!
+
+- I can't find a way to reach axis labels from ROOT 7's type-erased interface.
+  If I can't get to those, then I can't propagate the labels to ROOT 6 hists
