@@ -33,10 +33,14 @@ namespace detail
     struct HistConverter
     {
         // Tell the user that we haven't implemented this conversion (yet?)
-        static_assert(always_false<Input>::value,
-                      "This RHist -> THxy conversion is not supported");
+        static_assert(
+            always_false<Input>::value,
+            "This ROOT7 -> ROOT6 histogram conversion is not supported");
 
-        // Dummy conversion function just to keep compiler errors bounded
+        // Dummy conversion function to keep compiler errors bounded
+        //
+        // FIXME: Should return TH2 in the 2D case, TH3 in the 3D case, etc.
+        //
         static TH1 convert(const Input& src, const char* name);
     };
 
@@ -67,25 +71,70 @@ namespace detail
 
     // We'll also want a nice compiler error message in the failing case
     template <template <int D_, class P_> class... STAT>
-    struct CheckStats {
-        static constexpr bool result = stats_ok<STAT...>;
-        static_assert(result,
-                      "Only RHists that record RHistStatContent statistics may "
-                      "be converted into ROOT 6 histograms");
+    struct CheckStats : public std::bool_constant<stats_ok<STAT...>> {
+        static_assert(stats_ok<STAT...>,
+                      "Only ROOT7 histograms that record RHistStatContent "
+                      "statistics may be converted into ROOT 6 histograms");
     };
 
     // ...and finally we can clean up
     template <template <int D_, class P_> class... STAT>
-    using CheckStats_t = std::enable_if_t<CheckStats<STAT...>::result>;
+    static constexpr bool CheckStats_v = CheckStats<STAT...>::value;
 
 
-    // RHist<1, char, ...> to TH1C histogram converter
-    template <template <int D_, class P_> class... STAT>
-    struct HistConverter<RExp::RHist<1, char, STAT...>, CheckStats_t<STAT...>>
+    // We also need a machinery that, given a ROOT 7 histogram type, can give us
+    // the corresponding ROOT 6 histogram type, if any.
+    //
+    // This must be done via specialization, so let's define the failing case...
+    //
+    template <int DIMENSIONS, class PRECISION>
+    struct CheckRoot6Type : public std::false_type
+    {
+        // Tell the user we don't know of an equivalent to this histogram type
+        static_assert(always_false<RExp::RHist<DIMENSIONS, PRECISION>>::value,
+                      "No known ROOT6 histogram type has the input histogram's "
+                      "dimensionality and precision");
+    };
+
+    // ...then we can define the successful cases...
+    template <>
+    struct CheckRoot6Type<1, Char_t> : public std::true_type {
+        using Result = TH1C;
+    };
+    template <>
+    struct CheckRoot6Type<1, Short_t> : public std::true_type {
+        using Result = TH1S;
+    };
+    template <>
+    struct CheckRoot6Type<1, Int_t> : public std::true_type {
+        using Result = TH1I;
+    };
+    template <>
+    struct CheckRoot6Type<1, Float_t> : public std::true_type {
+        using Result = TH1F;
+    };
+    template <>
+    struct CheckRoot6Type<1, Double_t> : public std::true_type {
+        using Result = TH1D;
+    };
+
+    // TODO: Also support 2D+ cases
+
+    // ...and add sugar on top
+    template <int DIMENSIONS, class PRECISION>
+    static constexpr bool CheckRoot6Type_v =
+        CheckRoot6Type<DIMENSIONS, PRECISION>::value;
+
+
+    // One-dimensional histogram converter
+    template <class PRECISION, template <int D_, class P_> class... STAT>
+    struct HistConverter<RExp::RHist<1, PRECISION, STAT...>,
+                         std::enable_if_t<CheckRoot6Type_v<1, PRECISION>
+                                          && CheckStats_v<STAT...>>>
     {
     private:
-        using Input = RExp::RHist<1, char, STAT...>;
-        using Output = TH1C;
+        using Input = RExp::RHist<1, PRECISION, STAT...>;
+        using Output = typename CheckRoot6Type<1, PRECISION>::Result;
 
     public:
         // Top-level conversion function
@@ -124,11 +173,11 @@ namespace detail
             const auto& eq_axis = *impl.GetAxis(0).GetAsEquidistant();
 
             // Create the output histogram
-            TH1C dest{name,
-                      convert_hist_title(impl.GetTitle()).c_str(),
-                      eq_axis.GetNBinsNoOver(),
-                      eq_axis.GetMinimum(),
-                      eq_axis.GetMaximum()};
+            Output dest{name,
+                        convert_hist_title(impl.GetTitle()).c_str(),
+                        eq_axis.GetNBinsNoOver(),
+                        eq_axis.GetMinimum(),
+                        eq_axis.GetMaximum()};
 
             // Propagate basic axis properties
             auto& dest_axis = *dest.GetXaxis();
@@ -164,10 +213,10 @@ namespace detail
             const auto& irr_axis = *impl.GetAxis(0).GetAsIrregular();
 
             // Create the output histogram
-            TH1C dest{name,
-                      convert_hist_title(impl.GetTitle()).c_str(),
-                      irr_axis.GetNBinsNoOver(),
-                      irr_axis.GetBinBorders().data()};
+            Output dest{name,
+                        convert_hist_title(impl.GetTitle()).c_str(),
+                        irr_axis.GetNBinsNoOver(),
+                        irr_axis.GetBinBorders().data()};
 
             // Propagate basic axis properties.
             // For irregular axes, there is nothing else to propagate.
@@ -248,7 +297,7 @@ namespace detail
             //
             //        Therefore, we must always ask TH1 to do the computation
             //        for us. It's better to do so using a GetStats/PutStats
-            //        pair, as ResetStats changes more than just the stats...
+            //        pair, as ResetStats alters more than those stats...
             //
             std::array<Double_t, TH1::kNstat> stats;
             dest.GetStats(stats.data());
@@ -260,20 +309,20 @@ namespace detail
     // TODO: Support other kinds of histogram conversions.
     //
     //       At that time, I'll probably want to extract some general-purpose
-    //       utilities from the TH1C converter, deduplicating those.
+    //       utilities from the TH1 converter, deduplicating those.
     //
     //       For 2D+ histogram, I'll also need to check if the bin data is
     //       ordered in the same way in ROOT 6 and ROOT 7. I should ideally have
     //       some kind of static assertion that checks that it remains the case
     //       as ROOT 7 development marches on.
     //
-    //       Alternatively, I could always work in global bin coordinates, but
+    //       Alternatively, I could always work in local bin coordinates, but
     //       that would greatly reduce my ability to factor out stuff between
     //       the 1D case and 2D+ cases.
     //
-    //       I also expect THn to be one super messy edge case. It's probably a
-    //       good idea to keep it a TODO initially, and wait for people to come
-    //       knocking on my door asking for it.
+    //       I also expect THn to be one super messy edge case that no one uses,
+    //       so it's probably a good idea to keep it a TODO initially and wait
+    //       for people to come knocking on my door asking for it.
 }
 
 
@@ -299,19 +348,31 @@ int main() {
     auto d2 = into_root6_hist(s2, "Yolo2");
 
     // Also works (More stats than actually needed)
-    RExp::RHist<1, char, RExp::RHistStatContent, RExp::RHistDataMomentUncert>
-        s3{{1000, 0., 1.}};
+    RExp::RHist<1,
+                char,
+                RExp::RHistStatContent,
+                RExp::RHistDataMomentUncert> s3{{1000, 0., 1.}};
     auto d3 = into_root6_hist(s3, "Yolo3");
 
-    // Compilation errors due to missing stats. Unlike ROOT, we fail fast.
+    // Compilation errors: insufficient stats. Unlike ROOT, we fail fast.
     /* RExp::RHist<1, char, RExp::RHistDataMomentUncert> s4{{1000, 0., 1.}};
     auto d4 = into_root6_hist(s4, "Yolo4"); */
     /* RExp::RHist<1, char, RExp::RHistStatUncertainty, RExp::RHistDataMomentUncert> s4{{1000, 0., 1.}};
     auto d4 = into_root6_hist(s4, "Yolo4"); */
 
-    // FIXME: Doesn't work yet
-    /* RExp::RHist<1, float> s5{{1000, 0., 1.}};
-    auto d5 = into_root6_hist(s5, "Yolo5"); */
+    // Data types other than char work just as well, if supported by ROOT 6
+    RExp::RHist<1, short> s5{{1000, 0., 1.}};
+    auto d5 = into_root6_hist(s5, "Yolo5");
+    RExp::RHist<1, int> s6{{1000, 0., 1.}};
+    auto d6 = into_root6_hist(s6, "Yolo6");
+    RExp::RHist<1, float> s7{{1000, 0., 1.}};
+    auto d7 = into_root6_hist(s7, "Yolo7");
+    RExp::RHist<1, double> s8{{1000, 0., 1.}};
+    auto d8 = into_root6_hist(s8, "Yolo8");
+
+    // Compilation error: data type not supported by ROOT 6. We fail fast.
+    /* RExp::RHist<1, size_t> s9{{1000, 0., 1.}};
+    auto d9 = into_root6_hist(s9, "Yolo9"); */
 
     // TODO: Add more sophisticated tests
 
