@@ -32,9 +32,9 @@ namespace detail
     template <typename Input, typename Enable = void>
     struct HistConverter
     {
-        // Tell the user that they ended up on an unsupported conversion
+        // Tell the user that we haven't implemented this conversion (yet?)
         static_assert(always_false<Input>::value,
-                      "Unsupported RHist -> THxy histogram conversion");
+                      "This RHist -> THxy conversion is not supported");
 
         // Dummy conversion function just to keep compiler errors bounded
         static TH1 convert(const Input& src, const char* name);
