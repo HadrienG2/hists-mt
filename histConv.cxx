@@ -13,8 +13,18 @@ namespace RExp = ROOT::Experimental;
 // Evil machinery turning ROOT 7 histograms into ROOT 6 histograms
 namespace detail
 {
-    // Evil trick to prevent base-case static_asserts from always firing
-    template <typename T> struct always_false: std::false_type {};
+    // Trick for static_asserts that only fail when a template is instantiated
+    //
+    // When you write a struct template that must always be specialized, you may
+    // want to print a compiler error when the non-specialized struct is
+    // instantiated, by adding a failing static_assert to it.
+    //
+    // However, you must then prevent the compiler from firing the static_assert
+    // even when the non-specialized version of the template struct is never
+    // instantiated, by making its evaluation "depend on" the template
+    // parameters of the struct. This variable template seems to do the job.
+    //
+    template <typename T> constexpr bool always_false = false;
 
 
     // ROOT 7 -> ROOT 6 histogram converter
@@ -34,7 +44,7 @@ namespace detail
     {
         // Tell the user that we haven't implemented this conversion (yet?)
         static_assert(
-            always_false<Input>::value,
+            always_false<Input>,
             "This ROOT7 -> ROOT6 histogram conversion is not supported");
 
         // Dummy conversion function to keep compiler errors bounded
@@ -91,7 +101,7 @@ namespace detail
     struct CheckRoot6Type : public std::false_type
     {
         // Tell the user we don't know of an equivalent to this histogram type
-        static_assert(always_false<RExp::RHist<DIMENSIONS, PRECISION>>::value,
+        static_assert(always_false<RExp::RHist<DIMENSIONS, PRECISION>>,
                       "No known ROOT6 histogram type has the input histogram's "
                       "dimensionality and precision");
     };
@@ -117,10 +127,9 @@ namespace detail
     struct CheckRoot6Type<1, Double_t> : public std::true_type {
         using Result = TH1D;
     };
-
     // TODO: Also support 2D+ cases
 
-    // ...and add sugar on top
+    // ...and finally we'll add CheckStats_v-like sugar on top for consistency
     template <int DIMENSIONS, class PRECISION>
     static constexpr bool CheckRoot6Type_v =
         CheckRoot6Type<DIMENSIONS, PRECISION>::value;
@@ -247,8 +256,7 @@ namespace detail
 
         // Transfer histogram axis settings which exist in both equidistant and
         // irregular binning configurations
-        static void setup_axis_common(TAxis& dest, const RExp::RAxisBase& src)
-        {
+        static void setup_axis_common(TAxis& dest, const RExp::RAxisBase& src) {
             // Propagate axis title
             dest.SetTitle(src.GetTitle().c_str());
 
