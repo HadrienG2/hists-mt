@@ -10,9 +10,10 @@
 namespace RExp = ROOT::Experimental;
 
 
+// Evil machinery turning ROOT 7 histograms into ROOT 6 histograms
 namespace detail
 {
-    // Evil trick to prevent base case static_asserts from always firing
+    // Evil trick to prevent base-case static_asserts from always firing
     template <typename T> struct always_false: std::false_type {};
 
 
@@ -33,9 +34,9 @@ namespace detail
     {
         // Tell the user that they ended up on an unsupported conversion
         static_assert(always_false<Input>::value,
-                      "This histogram conversion is not implemented");
+                      "Unsupported RHist -> THxy histogram conversion");
 
-        // Dummy conversion function to keep compiler errors bounded
+        // Dummy conversion function just to keep compiler errors bounded
         static TH1 convert(const Input& src, const char* name);
     };
 
