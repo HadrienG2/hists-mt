@@ -52,9 +52,9 @@ namespace detail
 
     public:
         // Top-level conversion function
-        static Output convert(const Input& hist, const char* name) {
+        static Output convert(const Input& src, const char* name) {
             // Make sure the histogram's impl-pointer is set
-            const auto* impl_ptr = hist.GetImpl();
+            const auto* impl_ptr = src.GetImpl();
             if (impl_ptr == nullptr) {
                 throw std::runtime_error("Histogram has a null impl pointer");
             }
@@ -65,13 +65,13 @@ namespace detail
             // If equidistant, dispatch to the equidistant converter
             const auto* eq_view_ptr = axis_view.GetAsEquidistant();
             if (eq_view_ptr != nullptr) {
-                return convert_eq(hist, name);
+                return convert_eq(src, name);
             }
 
             // If irregular, dispatch to the irregular converter
             const auto* irr_view_ptr = axis_view.GetAsIrregular();
             if (irr_view_ptr != nullptr) {
-                return convert_irr(hist, name);
+                return convert_irr(src, name);
             }
 
             // As of ROOT 6.18.0, there is no other axis kind
@@ -79,24 +79,23 @@ namespace detail
         }
 
     private:
-        // TODO: Deduplicate equidistant/irregular conversion
 
         // Conversion function for histograms with equidistant binning
-        static Output convert_eq(const Input& hist, const char* name) {
+        static Output convert_eq(const Input& src, const char* name) {
             // Get back the state that was validated by convert()
-            const auto& impl = *hist.GetImpl();
+            const auto& impl = *src.GetImpl();
             const auto& eq_axis = *impl.GetAxis(0).GetAsEquidistant();
 
             // Create the output histogram
-            TH1C result{name,
-                        convert_hist_title(impl.GetTitle()).c_str(),
-                        eq_axis.GetNBinsNoOver(),
-                        eq_axis.GetMinimum(),
-                        eq_axis.GetMaximum()};
+            TH1C dest{name,
+                      convert_hist_title(impl.GetTitle()).c_str(),
+                      eq_axis.GetNBinsNoOver(),
+                      eq_axis.GetMinimum(),
+                      eq_axis.GetMaximum()};
 
             // Propagate basic axis properties
-            auto& result_axis = *result.GetXaxis();
-            setup_axis_common(result_axis, eq_axis);
+            auto& dest_axis = *dest.GetXaxis();
+            setup_axis_common(dest_axis, eq_axis);
 
             // If the axis is labeled, propagate labels
             //
@@ -111,45 +110,36 @@ namespace detail
                 auto labels = lbl_axis_ptr->GetBinLabels();
                 for (size_t bin = 0; bin < labels.size(); ++bin) {
                     std::string label{labels[bin]};
-                    result_axis.SetBinLabel(bin, label.c_str());
+                    dest_axis.SetBinLabel(bin, label.c_str());
                 }
             } */
 
-            // TODO: Propagate histogram data. What may need to be propagated:
-            //       - Bin content (TYPED per-bin sum of weights)
-            //       - fEntries (number of entries)
-            //       - fTsumw (total sum of weights)
-            //       - fTsumw2 (total sum of square of weights)
-            //       - fTsumwx (total sum of weight*x)
-            //       - fTsumwx2 (total sum of weight*x*x)
-            //       - fSumw2 (per-bin sum of square of weights), if enabled
-            //       - fBinStatErrOpt (stat error configuration)
-            //       - fStatOverflows (stat overflow configuration)
-            //
-            /* const auto& stat = impl.GetStat(); */
+            // Propagate histogram configuration and contents
+            setup_hist_common(dest, src);
 
-            return result;
+            return dest;
         }
 
         // Conversion function for histograms with irregular binning
-        static Output convert_irr(const Input& hist, const char* name) {
+        static Output convert_irr(const Input& src, const char* name) {
             // Get back the state that was validated by convert()
-            const auto& impl = *hist.GetImpl();
+            const auto& impl = *src.GetImpl();
             const auto& irr_axis = *impl.GetAxis(0).GetAsIrregular();
 
             // Create the output histogram
-            TH1C result{name,
-                        convert_hist_title(impl.GetTitle()).c_str(),
-                        irr_axis.GetNBinsNoOver(),
-                        irr_axis.GetBinBorders().data()};
+            TH1C dest{name,
+                      convert_hist_title(impl.GetTitle()).c_str(),
+                      irr_axis.GetNBinsNoOver(),
+                      irr_axis.GetBinBorders().data()};
 
-            // Propagate basic axis properties
-            setup_axis_common(*result.GetXaxis(), irr_axis);
+            // Propagate basic axis properties.
+            // For irregular axes, there is nothing else to propagate.
+            setup_axis_common(*dest.GetXaxis(), irr_axis);
 
-            // TODO: Once data propagation is live for equidistant axes,
-            //       make it work with irregular axes
+            // Propagate histogram configuration and contents
+            setup_hist_common(dest, src);
 
-            return result;
+            return dest;
         }
 
         // Convert a ROOT 7 histogram title into a ROOT 6 histogram title
@@ -180,6 +170,54 @@ namespace detail
             // FIXME: No direct access fo fCanGrow in RAxisBase yet!
             dest.SetCanExtend((src.GetNOverflowBins() == 0));
         }
+
+        // Transfer histogram-wide configuration and contents
+        static void setup_hist_common(Output& dest, const Input& src) {
+            // Get back the state that was validated by convert()
+            const auto& impl = *src.GetImpl();
+
+            // Make sure that under- and overflow bins are included in the
+            // statistics, to match the ROOT 7 behavior (as of ROOT v6.18.0).
+            dest.SetStatOverflows(TH1::kConsider);
+
+            // Propagate bin uncertainties, if present.
+            // This must be done before inserting any other data in the TH1, as
+            // otherwise Sumw2() will perform undesirable black magic...
+            const auto& stat = impl.GetStat();
+            if (stat.HasBinUncertainty()) {
+                dest.Sumw2();
+                auto& sumw2 = *dest.GetSumw2();
+                for (size_t bin = 0; bin < impl.GetNBins(); ++bin) {
+                    sumw2[bin] = stat.GetBinUncertainty(bin);
+                }
+            }
+
+            // Propagate basic histogram statistics
+            dest.SetEntries(stat.GetEntries());
+            for (size_t bin = 0; bin < impl.GetNBins(); ++bin) {
+                dest.AddBinContent(bin, stat.GetBinContent(bin));
+            }
+
+            // FIXME: If the input RHist computes all of...
+            //        - fTsumw (total sum of weights)
+            //        - fTsumw2 (total sum of square of weights)
+            //        - fTsumwx (total sum of weight*x)
+            //        - fTsumwx2 (total sum of weight*x*x)
+            //
+            //        ...then we should propagate those statistics to the TH1.
+            //
+            //        But as of ROOT 6.18.0, we can never do this, because the
+            //        RHistDataMomentUncert stats associated with fTsumwx and
+            //        fTsumwx2 do not expose their contents publicly.
+            //
+            //        Therefore, we must always ask TH1 to do the computation
+            //        for us. It's better to do so using a GetStats/PutStats
+            //        pair, as ResetStats changes more than just the stats...
+            //
+            std::array<Double_t, TH1::kNstat> stats;
+            dest.GetStats(stats.data());
+            dest.PutStats(stats.data());
+        }
     };
 
 
@@ -205,12 +243,12 @@ namespace detail
 
 // High-level interface to the above conversion machinery
 //
-// "hist" is the histogram to be converted, and "name" plays the same role as in
+// "src" is the histogram to be converted, and "name" plays the same role as in
 // the ROOT 6 histogram constructors.
 //
 template <typename Root7Hist>
-auto into_root6_hist(const Root7Hist& hist, const char* name) {
-    return detail::HistConverter<Root7Hist>::convert(hist, name);
+auto into_root6_hist(const Root7Hist& src, const char* name) {
+    return detail::HistConverter<Root7Hist>::convert(src, name);
 }
 
 

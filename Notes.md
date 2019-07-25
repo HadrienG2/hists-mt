@@ -120,3 +120,12 @@
 
 - I can't find a way to reach axis labels from ROOT 7's type-erased interface.
   If I can't get to those, then I can't propagate the labels to ROOT 6 hists
+
+- Right now, some information is directly accessible from RHist, and some other
+  information requires poking into RHistImpl. It would be good to clarify that
+  this is the intended way.
+    * As a rule of thumb, per-bin statistics are mostly accessible from RHist,
+      and global statistics are mostly inaccessible from RHist.
+
+- Another bug report: the stats collected by RHistDataMomentUncert are not
+  exposed to the outside world...
