@@ -12,6 +12,10 @@ namespace RExp = ROOT::Experimental;
 
 namespace detail
 {
+    // Evil trick to prevent base case static_asserts from always firing
+    template <typename T> struct always_false: std::false_type {};
+
+
     // ROOT 7 -> ROOT 6 histogram converter
     //
     // Must be specialized for every supported ROOT 7 histogram type. Falling
@@ -24,27 +28,59 @@ namespace detail
     // - The ROOT 7 histogram that must be converted into a ROOT 6 one.
     // - A name, playing the same role as ROOT 6's "name" constructor parameter.
     //
-    template <typename Input>
+    template <typename Input, typename Enable = void>
     struct HistConverter
     {
-    private:
-        // Evil trick to prevent the static_assert below from always firing
-        template <typename T> struct always_false: std::false_type {};
-
-    public:
         // Tell the user that they ended up on an unsupported conversion
         static_assert(always_false<Input>::value,
                       "This histogram conversion is not implemented");
+
+        // Dummy conversion function to keep compiler errors bounded
+        static TH1 convert(const Input& src, const char* name);
     };
 
 
-    // RHist<1, char, ...> to TH1C histogram converter
-    //
-    // FIXME: We actually have some requirements on the STATs, which we should
-    //        properly assert via SFINAE to avoid template error horror.
-    //
+    // For a ROOT 7 histogram to be convertible to the ROOT 6 format, it must
+    // collect the RHistStatContent statistic. Let's check for this.
     template <template <int D_, class P_> class... STAT>
-    struct HistConverter<RExp::RHist<1, char, STAT...>>
+    constexpr bool stats_ok;
+
+    // If the user declares an RHist with an empty stats list, ROOT silently
+    // adds RHistStatContent. So we must special-case this empty list.
+    template <>
+    constexpr bool stats_ok<> = true;
+
+    // If there is only one stat in the list, then the assertion will succeed or
+    // fail depending on if this stat is RHistStatContent.
+    template <template <int D_, class P_> class SINGLE_STAT>
+    constexpr bool stats_ok<SINGLE_STAT> = false;
+    template <>
+    constexpr bool stats_ok<RExp::RHistStatContent> = true;
+
+    // If there are 2+ stats in the list, then we iterate through recursion.
+    // This case won't catch the 1-stat scenario due to above specializations.
+    template <template <int D_, class P_> class STAT_HEAD,
+              template <int D_, class P_> class... STAT_TAIL>
+    constexpr bool stats_ok<STAT_HEAD, STAT_TAIL...> =
+        stats_ok<STAT_HEAD> || stats_ok<STAT_TAIL...>;
+
+    // We'll also want a nice compiler error message in the failing case
+    template <template <int D_, class P_> class... STAT>
+    struct CheckStats {
+        static constexpr bool result = stats_ok<STAT...>;
+        static_assert(result,
+                      "Only RHists that record RHistStatContent statistics may "
+                      "be converted into ROOT 6 histograms");
+    };
+
+    // ...and finally we can clean up
+    template <template <int D_, class P_> class... STAT>
+    using CheckStats_t = std::enable_if_t<CheckStats<STAT...>::result>;
+
+
+    // RHist<1, char, ...> to TH1C histogram converter
+    template <template <int D_, class P_> class... STAT>
+    struct HistConverter<RExp::RHist<1, char, STAT...>, CheckStats_t<STAT...>>
     {
     private:
         using Input = RExp::RHist<1, char, STAT...>;
@@ -173,28 +209,27 @@ namespace detail
 
         // Transfer histogram-wide configuration and contents
         static void setup_hist_common(Output& dest, const Input& src) {
-            // Get back the state that was validated by convert()
-            const auto& impl = *src.GetImpl();
-
             // Make sure that under- and overflow bins are included in the
             // statistics, to match the ROOT 7 behavior (as of ROOT v6.18.0).
             dest.SetStatOverflows(TH1::kConsider);
 
             // Propagate bin uncertainties, if present.
-            // This must be done before inserting any other data in the TH1, as
+            //
+            // This must be done before inserting any other data in the TH1,
             // otherwise Sumw2() will perform undesirable black magic...
-            const auto& stat = impl.GetStat();
+            //
+            const auto& stat = src.GetImpl()->GetStat();
             if (stat.HasBinUncertainty()) {
                 dest.Sumw2();
                 auto& sumw2 = *dest.GetSumw2();
-                for (size_t bin = 0; bin < impl.GetNBins(); ++bin) {
+                for (size_t bin = 0; bin < stat.size(); ++bin) {
                     sumw2[bin] = stat.GetBinUncertainty(bin);
                 }
             }
 
             // Propagate basic histogram statistics
             dest.SetEntries(stat.GetEntries());
-            for (size_t bin = 0; bin < impl.GetNBins(); ++bin) {
+            for (size_t bin = 0; bin < stat.size(); ++bin) {
                 dest.AddBinContent(bin, stat.GetBinContent(bin));
             }
 
@@ -254,8 +289,28 @@ auto into_root6_hist(const Root7Hist& src, const char* name) {
 
 // Test for the conversion machinery
 int main() {
-    RExp::RHist<1, char> hist{{1000, 0., 1.}};
-    auto res = into_root6_hist(hist, "TYolo");
+    // Works (Minimal stats that we need)
+    RExp::RHist<1, char, RExp::RHistStatContent> s1{{1000, 0., 1.}};
+    auto d1 = into_root6_hist(s1, "Yolo1");
+
+    // Also works (ROOT 7 implicitly adds an RHistStatContent here)
+    RExp::RHist<1, char> s2{{1000, 0., 1.}};
+    auto d2 = into_root6_hist(s2, "Yolo2");
+
+    // Also works (More stats than actually needed)
+    RExp::RHist<1, char, RExp::RHistStatContent, RExp::RHistDataMomentUncert>
+        s3{{1000, 0., 1.}};
+    auto d3 = into_root6_hist(s3, "Yolo3");
+
+    // Compilation errors due to missing stats. Unlike ROOT, we fail fast.
+    /* RExp::RHist<1, char, RExp::RHistDataMomentUncert> s4{{1000, 0., 1.}};
+    auto d4 = into_root6_hist(s4, "Yolo4"); */
+    /* RExp::RHist<1, char, RExp::RHistStatUncertainty, RExp::RHistDataMomentUncert> s4{{1000, 0., 1.}};
+    auto d4 = into_root6_hist(s4, "Yolo4"); */
+
+    // FIXME: Doesn't work yet
+    /* RExp::RHist<1, float> s5{{1000, 0., 1.}};
+    auto d5 = into_root6_hist(s5, "Yolo5"); */
 
     // TODO: Add more sophisticated tests
 
