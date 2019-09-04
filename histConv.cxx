@@ -178,11 +178,49 @@ namespace detail
         CheckRoot6Type<DIMENSIONS, PRECISION>::value;
 
 
+    // Dimension-generic histogram conversion logic
+    struct HistConverterCommon
+    {
+    protected:
+        // The logic for equidistant and irregular axes diverges enough to
+        // warrant splitting it into two separate code paths for clarity.
+        enum class AxisKind { Equidistant, Irregular };
+
+        // Convert a ROOT 7 histogram title into a ROOT 6 histogram title
+        //
+        // To prevent ROOT 6 from misinterpreting free-form histogram titles
+        // from ROOT 7 as a mixture of a histogram title and axis titles, all
+        // semicolons must be escaped with a preceding # character.
+        //
+        static std::string convert_hist_title(const std::string& title) {
+            std::string hist_title = title;
+            size_t pos = 0;
+            while(true) {
+                pos = hist_title.find(';', pos);
+                if (pos == std::string::npos) return hist_title;
+                hist_title.insert(pos, 1, '#');
+                pos += 2;
+            }
+        }
+
+        // Transfer histogram axis settings which exist in both equidistant and
+        // irregular binning configurations
+        static void setup_axis_common(TAxis& dest, const RExp::RAxisBase& src) {
+            // Propagate axis title
+            dest.SetTitle(src.GetTitle().c_str());
+
+            // Propagate axis growability
+            // FIXME: No direct access fo fCanGrow in RAxisBase yet!
+            dest.SetCanExtend((src.GetNOverflowBins() == 0));
+        }
+    };
+
     // One-dimensional histogram converter
     template <class PRECISION, template <int D_, class P_> class... STAT>
     struct HistConverter<RExp::RHist<1, PRECISION, STAT...>,
                          std::enable_if_t<CheckRoot6Type_v<1, PRECISION>
                                           && CheckStats_v<STAT...>>>
+           : public HistConverterBase
     {
     private:
         using Input = RExp::RHist<1, PRECISION, STAT...>;
@@ -278,34 +316,6 @@ namespace detail
             setup_hist_common(dest, src);
 
             return dest;
-        }
-
-        // Convert a ROOT 7 histogram title into a ROOT 6 histogram title
-        //
-        // To prevent ROOT 6 from misinterpreting free-form histogram titles
-        // from ROOT 7 as a mixture of a histogram title and axis titles, all
-        // semicolons must be escaped with a preceding # character.
-        //
-        static std::string convert_hist_title(const std::string& title) {
-            std::string hist_title = title;
-            size_t pos = 0;
-            while(true) {
-                pos = hist_title.find(';', pos);
-                if (pos == std::string::npos) return hist_title;
-                hist_title.insert(pos, 1, '#');
-                pos += 2;
-            }
-        }
-
-        // Transfer histogram axis settings which exist in both equidistant and
-        // irregular binning configurations
-        static void setup_axis_common(TAxis& dest, const RExp::RAxisBase& src) {
-            // Propagate axis title
-            dest.SetTitle(src.GetTitle().c_str());
-
-            // Propagate axis growability
-            // FIXME: No direct access fo fCanGrow in RAxisBase yet!
-            dest.SetCanExtend((src.GetNOverflowBins() == 0));
         }
 
         // Transfer histogram-wide configuration and contents
