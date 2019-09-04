@@ -180,7 +180,7 @@ namespace detail
 
     // The logic for equidistant and irregular axes diverges enough to
     // warrant splitting it into two separate code paths for clarity.
-    enum AxisKind : size_t { Equidistant = 0, Irregular };
+    enum AxisKind : size_t { Equidistant = 0, Irregular, LENGTH };
 
     // Convert a ROOT 7 histogram title into a ROOT 6 histogram title
     //
@@ -210,6 +210,61 @@ namespace detail
         dest.SetCanExtend((src.GetNOverflowBins() == 0));
     }
 
+    // Generic implementation of a top-level convert() function, dispatching
+    // into specialized impls for the chosen axis kinds.
+    //
+    // Specialized functions should be given in lexicographic order:
+    // EqEq, EqIrr, IrrEq, IrrIrr, etc.
+    //
+    template <class Output, size_t DIM, class Input>
+    Output convert_impl(
+        const Input& src,
+        const char* name,
+        const std::array<Output(*)(const Input&, const char*),
+                         (1 << DIM)>& converters
+    ) {
+        // Document all the hacks
+        static_assert(AxisKind::LENGTH == 2,
+                      "The (1 << DIM) hack for constexpr computation of "
+                      "integer powers of AxisKind::LENGTH only works because "
+                      "AxisKind::LENGTH happens to be equal to 2.");
+
+        // Make sure the histogram's impl-pointer is set
+        const auto* impl_ptr = src.GetImpl();
+        if (impl_ptr == nullptr) {
+            throw std::runtime_error("Histogram has a null impl pointer");
+        }
+
+        // Examine axis kinds to determine which converter we should dispatch to
+        size_t converter_index = 0;
+        for (size_t axis = 0; axis < DIM; ++axis) {
+            // Make room for current axis' kind
+            converter_index *= AxisKind::LENGTH;
+
+            // Query the current histogram axis' kind
+            const auto axis_view = impl_ptr->GetAxis(axis);
+
+            // If equidistant, dispatch to the equidistant converter
+            const auto* eq_view_ptr = axis_view.GetAsEquidistant();
+            if (eq_view_ptr != nullptr) {
+                converter_index += AxisKind::Equidistant;
+                continue;
+            }
+
+            // If irregular, dispatch to the irregular converter
+            const auto* irr_view_ptr = axis_view.GetAsIrregular();
+            if (irr_view_ptr != nullptr) {
+                converter_index += AxisKind::Irregular;
+                continue;
+            }
+
+            // As of ROOT 6.18.0, there is no other axis kind
+            throw std::runtime_error("Unsupported histogram axis type");
+        }
+
+        // Dispatch to the converter of choice
+        return converters.at(converter_index)(src, name);
+    }
 
     // One-dimensional histogram converter
     template <class PRECISION, template <int D_, class P_> class... STAT>
@@ -224,29 +279,7 @@ namespace detail
     public:
         // Top-level conversion function
         static Output convert(const Input& src, const char* name) {
-            // Make sure the histogram's impl-pointer is set
-            const auto* impl_ptr = src.GetImpl();
-            if (impl_ptr == nullptr) {
-                throw std::runtime_error("Histogram has a null impl pointer");
-            }
-
-            // Query the histogram's axis kind
-            const auto axis_view = impl_ptr->GetAxis(0);
-
-            // If equidistant, dispatch to the equidistant converter
-            const auto* eq_view_ptr = axis_view.GetAsEquidistant();
-            if (eq_view_ptr != nullptr) {
-                return convert_eq(src, name);
-            }
-
-            // If irregular, dispatch to the irregular converter
-            const auto* irr_view_ptr = axis_view.GetAsIrregular();
-            if (irr_view_ptr != nullptr) {
-                return convert_irr(src, name);
-            }
-
-            // As of ROOT 6.18.0, there is no other axis kind
-            throw std::runtime_error("Unsupported histogram axis type");
+            return convert_impl<Output, 1>(src, name, {convert_eq, convert_irr});
         }
 
     private:
