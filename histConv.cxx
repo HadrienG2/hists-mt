@@ -15,6 +15,8 @@ namespace RExp = ROOT::Experimental;
 // Evil machinery turning ROOT 7 histograms into ROOT 6 histograms
 namespace detail
 {
+    // === TOP-LEVEL ENTRY POINT FOR INTO_ROOT6_HIST ===
+
     // Trick for static_asserts that only fail when a template is instantiated
     //
     // When you write a struct template that must always be specialized, you may
@@ -27,7 +29,6 @@ namespace detail
     // parameters of the struct. This variable template seems to do the job.
     //
     template <typename T> constexpr bool always_false = false;
-
 
     // ROOT 7 -> ROOT 6 histogram converter
     //
@@ -56,6 +57,8 @@ namespace detail
         static TH1 convert(const Input& src, const char* name);
     };
 
+
+    // === CHECK THAT REQUIRED RHIST STATS ARE PRESENT ===
 
     // For a ROOT 7 histogram to be convertible to the ROOT 6 format, it must
     // collect the RHistStatContent statistic. Let's check for this.
@@ -93,6 +96,8 @@ namespace detail
     template <template <int D_, class P_> class... STAT>
     static constexpr bool CheckStats_v = CheckStats<STAT...>::value;
 
+
+    // === LOOK UP THE ROOT 6 EQUIVALENT OF OUR RHIST (IF ANY) ===
 
     // We also need a machinery that, given a ROOT 7 histogram type, can give us
     // the corresponding ROOT 6 histogram type, if any.
@@ -178,6 +183,8 @@ namespace detail
         CheckRoot6Type<DIMENSIONS, PRECISION>::value;
 
 
+    // === DIMENSION-GENERIC RHIST -> THx CONVERSION BUILDING BLOCKS ===
+
     // Convert a ROOT 7 histogram title into a ROOT 6 histogram title
     //
     // To prevent ROOT 6 from misinterpreting free-form histogram titles
@@ -239,20 +246,20 @@ namespace detail
         // Examine axis kinds to determine which converter we should dispatch to
         size_t converter_index = 0;
         for (size_t axis = 0; axis < DIM; ++axis) {
-            // Make room for current axis' kind
+            // Shift converter index to make room for new axis index
             converter_index *= AxisKind::LENGTH;
 
-            // Query the current histogram axis' kind
+            // Query the current histogram axis
             const auto axis_view = impl_ptr->GetAxis(axis);
 
-            // If equidistant, dispatch to the equidistant converter
+            // Handle equidistant axis case
             const auto* eq_view_ptr = axis_view.GetAsEquidistant();
             if (eq_view_ptr != nullptr) {
                 converter_index += AxisKind::Equidistant;
                 continue;
             }
 
-            // If irregular, dispatch to the irregular converter
+            // Handle irregular axis case
             const auto* irr_view_ptr = axis_view.GetAsIrregular();
             if (irr_view_ptr != nullptr) {
                 converter_index += AxisKind::Irregular;
@@ -267,6 +274,8 @@ namespace detail
         return converters.at(converter_index)(src, name);
     }
 
+
+    // === HISTCONVERTER SPECIALIZATIONS FOR SUPPORTED HISTOGRAM TYPES ===
 
     // One-dimensional histogram converter
     template <class PRECISION, template <int D_, class P_> class... STAT>
