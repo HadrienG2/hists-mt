@@ -294,7 +294,6 @@ namespace detail
         }
 
     private:
-
         // Conversion function for histograms with equidistant binning
         static Output convert_eq(const Input& src, const char* name) {
             // Get back the state that was validated by convert()
