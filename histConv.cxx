@@ -178,10 +178,6 @@ namespace detail
         CheckRoot6Type<DIMENSIONS, PRECISION>::value;
 
 
-    // The logic for equidistant and irregular axes diverges enough to
-    // warrant splitting it into two separate code paths for clarity.
-    enum AxisKind : size_t { Equidistant = 0, Irregular, LENGTH };
-
     // Convert a ROOT 7 histogram title into a ROOT 6 histogram title
     //
     // To prevent ROOT 6 from misinterpreting free-form histogram titles
@@ -198,6 +194,10 @@ namespace detail
             pos += 2;
         }
     }
+
+    // The logic for equidistant and irregular axes diverges enough to
+    // warrant splitting it into two separate code paths for clarity.
+    enum AxisKind : size_t { Equidistant = 0, Irregular, LENGTH };
 
     // Transfer histogram axis settings which exist in both equidistant and
     // irregular binning configurations
