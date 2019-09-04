@@ -210,11 +210,12 @@ namespace detail
         dest.SetCanExtend((src.GetNOverflowBins() == 0));
     }
 
-    // Generic implementation of a top-level convert() function, dispatching
-    // into specialized impls for the chosen axis kinds.
+    // Generic implementation of a HistConverter's top-level convert() function,
+    // dispatching into specialized conversion functions for each possible
+    // combination of AxisKinds.
     //
     // Specialized functions should be given in lexicographic order:
-    // EqEq, EqIrr, IrrEq, IrrIrr, etc.
+    // EqEq, then EqIrr, then IrrEq, then IrrIrr, etc.
     //
     template <class Output, size_t DIM, class Input>
     Output convert_impl(
@@ -265,6 +266,7 @@ namespace detail
         // Dispatch to the converter of choice
         return converters.at(converter_index)(src, name);
     }
+
 
     // One-dimensional histogram converter
     template <class PRECISION, template <int D_, class P_> class... STAT>
