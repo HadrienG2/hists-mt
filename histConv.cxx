@@ -210,6 +210,7 @@ namespace detail
         dest.SetCanExtend((src.GetNOverflowBins() == 0));
     }
 
+
     // One-dimensional histogram converter
     template <class PRECISION, template <int D_, class P_> class... STAT>
     struct HistConverter<RExp::RHist<1, PRECISION, STAT...>,
