@@ -1,6 +1,8 @@
 #include "ROOT/RAxis.hxx"
 #include "ROOT/RHist.hxx"
 #include "TH1.h"
+#include "TH2.h"
+#include "TH3.h"
 
 #include <exception>
 #include <type_traits>
@@ -127,7 +129,48 @@ namespace detail
     struct CheckRoot6Type<1, Double_t> : public std::true_type {
         using Result = TH1D;
     };
-    // TODO: Also support 2D+ cases
+
+    template <>
+    struct CheckRoot6Type<2, Char_t> : public std::true_type {
+        using Result = TH2C;
+    };
+    template <>
+    struct CheckRoot6Type<2, Short_t> : public std::true_type {
+        using Result = TH2S;
+    };
+    template <>
+    struct CheckRoot6Type<2, Int_t> : public std::true_type {
+        using Result = TH2I;
+    };
+    template <>
+    struct CheckRoot6Type<2, Float_t> : public std::true_type {
+        using Result = TH2F;
+    };
+    template <>
+    struct CheckRoot6Type<2, Double_t> : public std::true_type {
+        using Result = TH2D;
+    };
+
+    template <>
+    struct CheckRoot6Type<3, Char_t> : public std::true_type {
+        using Result = TH3C;
+    };
+    template <>
+    struct CheckRoot6Type<3, Short_t> : public std::true_type {
+        using Result = TH3S;
+    };
+    template <>
+    struct CheckRoot6Type<3, Int_t> : public std::true_type {
+        using Result = TH3I;
+    };
+    template <>
+    struct CheckRoot6Type<3, Float_t> : public std::true_type {
+        using Result = TH3F;
+    };
+    template <>
+    struct CheckRoot6Type<3, Double_t> : public std::true_type {
+        using Result = TH3D;
+    };
 
     // ...and finally we'll add CheckStats_v-like sugar on top for consistency
     template <int DIMENSIONS, class PRECISION>
