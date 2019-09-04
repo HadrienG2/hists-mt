@@ -363,9 +363,14 @@ int main() {
     auto d3 = into_root6_hist(s3, "Yolo3");
 
     // Compilation errors: insufficient stats. Unlike ROOT, we fail fast.
-    /* RExp::RHist<1, char, RExp::RHistDataMomentUncert> s4{{1000, 0., 1.}};
+    /* RExp::RHist<1,
+                   char,
+                   RExp::RHistDataMomentUncert> s4{{1000, 0., 1.}};
     auto d4 = into_root6_hist(s4, "Yolo4"); */
-    /* RExp::RHist<1, char, RExp::RHistStatUncertainty, RExp::RHistDataMomentUncert> s4{{1000, 0., 1.}};
+    /* RExp::RHist<1,
+                   char,
+                   RExp::RHistStatUncertainty,
+                   RExp::RHistDataMomentUncert> s4{{1000, 0., 1.}};
     auto d4 = into_root6_hist(s4, "Yolo4"); */
 
     // Data types other than char work just as well, if supported by ROOT 6
