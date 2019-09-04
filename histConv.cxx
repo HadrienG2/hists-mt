@@ -179,12 +179,12 @@ namespace detail
 
 
     // Dimension-generic histogram conversion logic
-    struct HistConverterCommon
+    struct HistConverterBase
     {
     protected:
         // The logic for equidistant and irregular axes diverges enough to
         // warrant splitting it into two separate code paths for clarity.
-        enum class AxisKind { Equidistant, Irregular };
+        enum AxisKind : size_t { Equidistant = 0, Irregular };
 
         // Convert a ROOT 7 histogram title into a ROOT 6 histogram title
         //
