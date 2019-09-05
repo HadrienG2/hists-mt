@@ -50,13 +50,10 @@ namespace detail
         // Tell the user that we haven't implemented this conversion (yet?)
         static_assert(
             always_false<Input>,
-            "This ROOT7 -> ROOT6 histogram conversion is not supported");
+            "This ROOT 7 -> ROOT 6 histogram conversion is not supported");
 
         // Dummy conversion function to keep compiler errors bounded
-        //
-        // FIXME: Should return TH2 in the 2D case, TH3 in the 3D case, etc.
-        //
-        static TH1 convert(const Input& src, const char* name);
+        static auto convert(const Input& src, const char* name);
     };
 
 
@@ -90,7 +87,7 @@ namespace detail
     template <template <int D_, class P_> class... STAT>
     struct CheckStats : public std::bool_constant<stats_ok<STAT...>> {
         static_assert(stats_ok<STAT...>,
-                      "Only ROOT7 histograms that record RHistStatContent "
+                      "Only ROOT 7 histograms that record RHistStatContent "
                       "statistics may be converted into ROOT 6 histograms");
     };
 
@@ -111,8 +108,8 @@ namespace detail
     {
         // Tell the user we don't know of an equivalent to this histogram type
         static_assert(always_false<RExp::RHist<DIMENSIONS, PRECISION>>,
-                      "No known ROOT6 histogram type has the input histogram's "
-                      "dimensionality and precision");
+                      "No known ROOT 6 histogram type matches the input "
+                      "histogram's dimensionality and precision");
     };
 
     // ...then we can define the successful cases...
@@ -238,15 +235,17 @@ namespace detail
         dest.SetCanExtend((src.GetNOverflowBins() == 0));
     }
 
+    // Shorthand for a ridiculously long name
+    template <int DIMS>
+    using RHistImplBase = RExp::Detail::RHistImplPrecisionAgnosticBase<DIMS>;
+
     // Histogram construction and configuration recursion for convert_hist
-    template <class Output, size_t AXIS, class InputImpl, class... BuildParams>
-    Output convert_hist_loop(
-        const InputImpl& src_impl,
-        std::tuple<BuildParams...>&& build_params
-    ) {
+    template <class Output, int AXIS, int DIMS, class... BuildParams>
+    Output convert_hist_loop(const RHistImplBase<DIMS>& src_impl,
+                             std::tuple<BuildParams...>&& build_params) {
         // This function is actually a kind of recursive loop for AXIS ranging
         // from 0 to the dimension of the histogram, inclusive.
-        if constexpr (AXIS < InputImpl::GetNDim()) {
+        if constexpr (AXIS < DIMS) {
             // The first iterations query the input histogram axes one by one
             const auto axis_view = src_impl.GetAxis(AXIS);
 
@@ -263,7 +262,7 @@ namespace detail
                                                    eq_axis.GetMinimum(),
                                                    eq_axis.GetMaximum()));
 
-                // Recurse with other axes to construct the histogram
+                // Process other axes and construct the histogram
                 auto dest =
                     convert_hist_loop<Output,
                                       AXIS+1>(src_impl,
@@ -289,8 +288,7 @@ namespace detail
                     }
                 } */
 
-                // Let iterations higher up in the call stack set up their
-                // own axes, and ultimately return the histogram to the caller.
+                // Send back the histogram to caller
                 return dest;
             }
 
@@ -308,7 +306,7 @@ namespace detail
                                         irr_axis.GetBinBorders().data())
                     );
 
-                // Recurse with other axes to construct the histogram
+                // Process other axes and construct the histogram
                 auto dest =
                     convert_hist_loop<Output,
                                       AXIS+1>(src_impl,
@@ -318,18 +316,17 @@ namespace detail
                 // There aren't any other properties for irregular axes.
                 setup_axis_base(get_root6_axis(dest, AXIS), irr_axis);
 
-                // Let iterations higher up in the call stack set up their
-                // own axes, and ultimately return the histogram to the caller.
+                // Send back the histogram to caller
                 return dest;
             }
 
             // As of ROOT 6.18.0, there should be no other axis kind, so
             // reaching this point indicates a bug in the code.
             throw std::runtime_error("Unsupported histogram axis type");
-        } else if constexpr (AXIS == InputImpl::GetNDim()) {
-            // We're at the last iteration of the loop. All histogram
-            // constructor parameters have been collected, and we can now call
-            // the ROOT 6 histogram constructor
+        } else if constexpr (AXIS == DIMS) {
+            // We've reached the bottom of the histogram construction recursion.
+            // All histogram constructor parameters have been collected, we can
+            // now construct the ROOT 6 histogram.
             return std::make_from_tuple<Output>(std::move(build_params));
         } else {
             // The loop shouldn't reach this point, there's a bug in the code
