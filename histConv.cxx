@@ -217,6 +217,37 @@ namespace detail
         dest.SetCanExtend((src.GetNOverflowBins() == 0));
     }
 
+    // Transfer equidistant histogram axis settings
+    void setup_axis(TAxis& dest, const RExp::RAxisEquidistant& src) {
+        // Propagate basic axis properties
+        setup_axis_common(dest, src);
+
+        // If the axis is labeled, propagate labels
+        //
+        // FIXME: I cannot find a way to go from RAxisView to axis labels!
+        //        Even dynamic_casting RAxisEquidistant* to RAxisLabels*
+        //        fails because the type is not polymorphic (does not have a
+        //        single virtual method).
+        //
+        /* const auto* lbl_axis_ptr =
+            dynamic_cast<const RExp::RAxisLabels*>(&src);
+        if (lbl_axis_ptr) {
+            auto labels = lbl_axis_ptr->GetBinLabels();
+            for (size_t bin = 0; bin < labels.size(); ++bin) {
+                std::string label{labels[bin]};
+                dest.SetBinLabel(bin, label.c_str());
+            }
+        } */
+    }
+
+    // Transfer irregular histogram axis settings
+    void setup_axis(TAxis& dest, const RExp::RAxisIrregular& src) {
+        // Propagate basic axis properties
+        setup_axis_common(dest, src);
+
+        // ...and for irregular axes, that's it!
+    }
+
     // Transfer histogram settings other than axis settings.
     //
     // This function is dimension-independent, and delegates the dimension-
@@ -353,25 +384,7 @@ namespace detail
                         eq_axis.GetMaximum()};
 
             // Propagate basic axis properties
-            auto& dest_axis = *dest.GetXaxis();
-            setup_axis_common(dest_axis, eq_axis);
-
-            // If the axis is labeled, propagate labels
-            //
-            // FIXME: I cannot find a way to go from RAxisView to axis labels!
-            //        Even dynamic_casting RAxisEquidistant* to RAxisLabels*
-            //        fails because the type is not polymorphic (does not have a
-            //        single virtual method).
-            //
-            /* const auto* lbl_axis_ptr =
-                dynamic_cast<const RExp::RAxisLabels*>(&eq_axis);
-            if (lbl_axis_ptr) {
-                auto labels = lbl_axis_ptr->GetBinLabels();
-                for (size_t bin = 0; bin < labels.size(); ++bin) {
-                    std::string label{labels[bin]};
-                    dest_axis.SetBinLabel(bin, label.c_str());
-                }
-            } */
+            setup_axis(*dest.GetXaxis(), eq_axis);
 
             // Propagate axis-independent histogram data
             setup_hist(dest, src, fill_hist_data);
@@ -391,9 +404,8 @@ namespace detail
                         irr_axis.GetNBinsNoOver(),
                         irr_axis.GetBinBorders().data()};
 
-            // Propagate basic axis properties.
-            // For irregular axes, there is nothing else to propagate.
-            setup_axis_common(*dest.GetXaxis(), irr_axis);
+            // Propagate basic axis properties
+            setup_axis(*dest.GetXaxis(), irr_axis);
 
             // Propagate axis-independent histogram data
             setup_hist(dest, src, fill_hist_data);
