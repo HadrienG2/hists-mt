@@ -7,6 +7,7 @@
 #include "TH3.h"
 
 #include <exception>
+#include <string>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -473,7 +474,7 @@ namespace detail
     {
     private:
         using Input = RExp::RHist<DIMS, PRECISION, STAT...>;
-        using Output = typename CheckRoot6Type<1, PRECISION>::Result;
+        using Output = typename CheckRoot6Type<DIMS, PRECISION>::Result;
 
     public:
         static Output convert(const Input& src, const char* name) {
