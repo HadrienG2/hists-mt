@@ -217,6 +217,15 @@ namespace detail
         dest.SetCanExtend((src.GetNOverflowBins() == 0));
     }
 
+    // Transfer histogram settings which exist in both equidistant and
+    // irregular binning configurations
+    template <class Output, class Input>
+    static void setup_hist_common(Output& dest, const Input& /* src */) {
+        // Make sure that under- and overflow bins are included in the
+        // statistics, to match the ROOT 7 behavior (as of ROOT v6.18.0).
+        dest.SetStatOverflows(TH1::kConsider);
+    }
+
     // Generic implementation of a HistConverter's top-level convert() function,
     // dispatching into specialized conversion functions for each possible
     // combination of AxisKinds.
@@ -328,8 +337,11 @@ namespace detail
                 }
             } */
 
-            // Propagate histogram configuration and contents
+            // Propagate axis-independent histogram properties
             setup_hist_common(dest, src);
+
+            // Propagate histogram contents
+            setup_hist_data(dest, src);
 
             return dest;
         }
@@ -350,18 +362,17 @@ namespace detail
             // For irregular axes, there is nothing else to propagate.
             setup_axis_common(*dest.GetXaxis(), irr_axis);
 
-            // Propagate histogram configuration and contents
+            // Propagate axis-independent histogram properties
             setup_hist_common(dest, src);
+
+            // Propagate histogram contents
+            setup_hist_data(dest, src);
 
             return dest;
         }
 
         // Transfer histogram-wide configuration and contents
-        static void setup_hist_common(Output& dest, const Input& src) {
-            // Make sure that under- and overflow bins are included in the
-            // statistics, to match the ROOT 7 behavior (as of ROOT v6.18.0).
-            dest.SetStatOverflows(TH1::kConsider);
-
+        static void setup_hist_data(Output& dest, const Input& src) {
             // Propagate bin uncertainties, if present.
             //
             // This must be done before inserting any other data in the TH1,
