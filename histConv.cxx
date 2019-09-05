@@ -224,6 +224,20 @@ namespace detail
         }
     }
 
+    // ROOT 7-like GetLowBinEdge for ROOT 6
+    std::array<Double_t, 1> get_low_bin_edge(const TH1& hist, size_t bin) {
+        return {hist.GetXaxis()->GetBinLowEdge(bin)};
+    }
+    std::array<Double_t, 2> get_low_bin_edge(const TH2& hist, size_t bin) {
+        return {hist.GetXaxis()->GetBinLowEdge(bin),
+                hist.GetYaxis()->GetBinLowEdge(bin)};
+    }
+    std::array<Double_t, 3> get_low_bin_edge(const TH3& hist, size_t bin) {
+        return {hist.GetXaxis()->GetBinLowEdge(bin),
+                hist.GetYaxis()->GetBinLowEdge(bin),
+                hist.GetZaxis()->GetBinLowEdge(bin)};
+    }
+
     // Transfer histogram axis settings which exist in both equidistant and
     // irregular binning configurations
     void setup_axis_base(TAxis& dest, const RExp::RAxisBase& src) {
@@ -333,8 +347,26 @@ namespace detail
             static_assert(always_false<Output>,
                           "Invalid loop iteration in build_hist_loop");
         }
+    }
 
-
+    // Check that the input and output histogram use the same binning
+    // conventions (starting index, N-d array serialization order...
+    //
+    // If any of these test fails, ROOT 7 binning went out of sync with
+    // ROOT 6 binning, and thusly broke our simple data transfer strategy :(
+    //
+    template <int DIMS>
+    void check_binning(const TH1& dest, const RHistImplBase<DIMS>& src_impl)
+    {
+        if (src_impl.GetBinFrom(0) != get_low_bin_edge(dest, 0)) {
+            throw std::runtime_error("Binning origin doesn't match");
+        }
+        if (src_impl.GetBinFrom(1) != get_low_bin_edge(dest, 1)) {
+            throw std::runtime_error("Bin order doesn't match");
+        }
+        if (src_impl.GetNBins() != dest.GetNcells()) {
+            throw std::runtime_error("Bin count doesn't match");
+        }
     }
 
     // Convert a ROOT 7 histogram into a ROOT 6 one
@@ -342,11 +374,7 @@ namespace detail
     // Offloads the work of filling up histogram data, which hasn't been made
     // dimension-agnostic yet, to a dimension-specific worker.
     template <class Output, class Input>
-    Output convert_hist(
-        const Input& src,
-        const char* name,
-        void(*check_binning)(Output&, const RHistImplBase<Input::GetNDim()>&))
-    {
+    Output convert_hist(const Input& src, const char* name) {
         // Make sure that the input histogram's impl-pointer is set
         const auto* impl_ptr = src.GetImpl();
         if (impl_ptr == nullptr) {
@@ -428,65 +456,26 @@ namespace detail
 
     // === HISTCONVERTER SPECIALIZATIONS FOR SUPPORTED HISTOGRAM TYPES ===
 
-    // One-dimensional histogram converter
-    template <class PRECISION, template <int D_, class P_> class... STAT>
-    struct HistConverter<RExp::RHist<1, PRECISION, STAT...>,
-                         std::enable_if_t<CheckRoot6Type_v<1, PRECISION>
+    // This struct is now an empty shell, but we still need it to check if the
+    // histogram type is supported via SFINAE.
+    template <int DIMS,
+              class PRECISION,
+              template <int D_, class P_> class... STAT>
+    struct HistConverter<RExp::RHist<DIMS, PRECISION, STAT...>,
+                         std::enable_if_t<CheckRoot6Type_v<DIMS, PRECISION>
                                           && CheckStats_v<STAT...>>>
     {
     private:
-        using Input = RExp::RHist<1, PRECISION, STAT...>;
+        using Input = RExp::RHist<DIMS, PRECISION, STAT...>;
         using Output = typename CheckRoot6Type<1, PRECISION>::Result;
 
     public:
-        // Top-level conversion function
         static Output convert(const Input& src, const char* name) {
-            return convert_hist<Output>(src, name, check_binning);
-        }
-
-    private:
-        // Check that the input and output histogram use the same binning
-        // conventions (starting index, N-d array serialization order...
-        //
-        // If any of these test fails, ROOT 7 binning went out of sync with
-        // ROOT 6 binning, and thusly broke our simple data transfer strategy :(
-        //
-        static void check_binning(Output& dest,
-                                  const RHistImplBase<1>& src_impl)
-        {
-            const auto& dest_x = *dest.GetXaxis();
-            if (src_impl.GetBinFrom(0) != std::array{dest_x.GetBinLowEdge(0)}) {
-                throw std::runtime_error("Binning origin doesn't match");
-            }
-            if (src_impl.GetBinFrom(1) != std::array{dest_x.GetBinLowEdge(1)}) {
-                throw std::runtime_error("Bin order doesn't match");
-            }
-            if (src_impl.GetNBins() != dest.GetNcells()) {
-                throw std::runtime_error("Bin count doesn't match");
-            }
+            return convert_hist<Output>(src, name);
         }
     };
 
-
-    // TODO: Support other kinds of histogram conversions.
-    //
-    //       I am currently the process of extracting dimension-independent
-    //       and dimension-generic utilities from the TH1 HistConverter.
-    //       Ultimately, the dimension-specific part should become very small,
-    //       and then generalizing HistConverters for TH2+ will be trivial.
-    //
-    //       For 2D+ histogram, I'll also need to check if the bin data is
-    //       ordered in the same way in ROOT 6 and ROOT 7. I should ideally have
-    //       some kind of assertion that checks that it remains the case as
-    //       ROOT 7 development marches on.
-    //
-    //       Alternatively, I could always work in local bin coordinates, but
-    //       that would greatly reduce my ability to factor out stuff between
-    //       the 1D case and 2D+ cases.
-    //
-    //       I also expect THn to be one super messy edge case that no one uses,
-    //       so it's probably a good idea to keep it a TODO initially and wait
-    //       for people to come knocking on my door asking for it.
+    // TODO: Support THn someday, if someone asks for it
 }
 
 
