@@ -455,8 +455,7 @@ namespace detail
     //       I am currently the process of extracting dimension-independent
     //       and dimension-generic utilities from the TH1 HistConverter.
     //       Ultimately, the dimension-specific part should become very small,
-    //       basically just calling GetXaxis and friends, and then writing
-    //       HistConverters for TH2+ will be trivial.
+    //       and then generalizing HistConverters for TH2+ will be trivial.
     //
     //       For 2D+ histogram, I'll also need to check if the bin data is
     //       ordered in the same way in ROOT 6 and ROOT 7. I should ideally have
