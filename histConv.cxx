@@ -293,11 +293,13 @@ namespace detail
         dest.PutStats(stats.data());
     }
 
-    // Generic implementation of a HistConverter's top-level convert() function,
-    // dispatching into specialized conversion functions for each possible
-    // combination of AxisKinds.
+    // Generic implementation of a HistConverter's top-level convert() function.
     //
-    // Specialized functions should be given in lexicographic order:
+    // Offloads the work of creating the output histogram and of transferring
+    // bin data to user-provided callbacks. Building is specific to a given axis
+    // configuration, filling is not.
+    //
+    // Builder functions should be given in lexicographic order:
     // EqEq, then EqIrr, then IrrEq, then IrrIrr, etc.
     //
     template <class Output, size_t DIM, class Input>
@@ -305,7 +307,8 @@ namespace detail
         const Input& src,
         const char* name,
         const std::array<Output(*)(const Input&, const char*),
-                         (1 << DIM)>& converters
+                         (1 << DIM)>& builders,
+        void(*fill_hist_data)(Output&, const Input&)
     ) {
         // Document all the hacks
         static_assert(AxisKind::LENGTH == 2,
@@ -346,8 +349,14 @@ namespace detail
             throw std::runtime_error("Unsupported histogram axis type");
         }
 
-        // Dispatch to the converter of choice
-        return converters.at(converter_index)(src, name);
+        // Build the output histogram
+        auto dest = builders.at(converter_index)(src, name);
+
+        // Transfer data from the input histogram
+        setup_hist(dest, src, fill_hist_data);
+
+        // Return the filled histogram
+        return dest;
     }
 
 
@@ -366,12 +375,15 @@ namespace detail
     public:
         // Top-level conversion function
         static Output convert(const Input& src, const char* name) {
-            return convert_impl<Output, 1>(src, name, {convert_eq, convert_irr});
+            return convert_impl<Output, 1>(src,
+                                           name,
+                                           {build_hist_eq, build_hist_irr},
+                                           fill_hist_data);
         }
 
     private:
-        // Conversion function for histograms with equidistant binning
-        static Output convert_eq(const Input& src, const char* name) {
+        // Build a TH1 with equidistant binning
+        static Output build_hist_eq(const Input& src, const char* name) {
             // Get back the state that was validated by convert()
             const auto& impl = *src.GetImpl();
             const auto& eq_axis = *impl.GetAxis(0).GetAsEquidistant();
@@ -386,14 +398,12 @@ namespace detail
             // Propagate basic axis properties
             setup_axis(*dest.GetXaxis(), eq_axis);
 
-            // Propagate axis-independent histogram data
-            setup_hist(dest, src, fill_hist_data);
-
+            // Return the histogram so it can be filled
             return dest;
         }
 
-        // Conversion function for histograms with irregular binning
-        static Output convert_irr(const Input& src, const char* name) {
+        // Build a TH1 with irregular binning
+        static Output build_hist_irr(const Input& src, const char* name) {
             // Get back the state that was validated by convert()
             const auto& impl = *src.GetImpl();
             const auto& irr_axis = *impl.GetAxis(0).GetAsIrregular();
@@ -406,9 +416,6 @@ namespace detail
 
             // Propagate basic axis properties
             setup_axis(*dest.GetXaxis(), irr_axis);
-
-            // Propagate axis-independent histogram data
-            setup_hist(dest, src, fill_hist_data);
 
             return dest;
         }
