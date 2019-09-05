@@ -224,19 +224,19 @@ namespace detail
         }
     }
 
-    // ROOT 7-like GetLowBinEdge for ROOT 6
-    std::array<Double_t, 1> get_low_bin_edge(const TH1& hist, size_t bin) {
+    // ROOT 7-like GetBinFrom for ROOT 6
+    std::array<Double_t, 1> get_bin_from_root6(const TH1& hist, size_t bin) {
         std::array<Int_t, 3> bin_xyz;
         hist.GetBinXYZ(bin, bin_xyz[0], bin_xyz[1], bin_xyz[2]);
         return {hist.GetXaxis()->GetBinLowEdge(bin_xyz[0])};
     }
-    std::array<Double_t, 2> get_low_bin_edge(const TH2& hist, size_t bin) {
+    std::array<Double_t, 2> get_bin_from_root6(const TH2& hist, size_t bin) {
         std::array<Int_t, 3> bin_xyz;
         hist.GetBinXYZ(bin, bin_xyz[0], bin_xyz[1], bin_xyz[2]);
         return {hist.GetXaxis()->GetBinLowEdge(bin_xyz[0]),
                 hist.GetYaxis()->GetBinLowEdge(bin_xyz[1])};
     }
-    std::array<Double_t, 3> get_low_bin_edge(const TH3& hist, size_t bin) {
+    std::array<Double_t, 3> get_bin_from_root6(const TH3& hist, size_t bin) {
         std::array<Int_t, 3> bin_xyz;
         hist.GetBinXYZ(bin, bin_xyz[0], bin_xyz[1], bin_xyz[2]);
         return {hist.GetXaxis()->GetBinLowEdge(bin_xyz[0]),
@@ -364,10 +364,10 @@ namespace detail
     template <int DIMS>
     void check_binning(const TH1& dest, const RHistImplBase<DIMS>& src_impl)
     {
-        if (src_impl.GetBinFrom(0) != get_low_bin_edge(dest, 0)) {
+        if (src_impl.GetBinFrom(0) != get_bin_from_root6(dest, 0)) {
             throw std::runtime_error("Binning origin doesn't match");
         }
-        if (src_impl.GetBinFrom(1) != get_low_bin_edge(dest, 1)) {
+        if (src_impl.GetBinFrom(1) != get_bin_from_root6(dest, 1)) {
             throw std::runtime_error("Bin order doesn't match");
         }
         if (src_impl.GetNBins() != dest.GetNcells()) {
