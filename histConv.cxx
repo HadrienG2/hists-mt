@@ -342,9 +342,11 @@ namespace detail
     // Offloads the work of filling up histogram data, which hasn't been made
     // dimension-agnostic yet, to a dimension-specific worker.
     template <class Output, class Input>
-    Output convert_hist(const Input& src,
-                        const char* name,
-                        void(*fill_hist_data)(Output&, const Input&)) {
+    Output convert_hist(
+        const Input& src,
+        const char* name,
+        void(*check_binning)(Output&, const RHistImplBase<Input::GetNDim()>&))
+    {
         // Make sure that the input histogram's impl-pointer is set
         const auto* impl_ptr = src.GetImpl();
         if (impl_ptr == nullptr) {
@@ -368,8 +370,30 @@ namespace detail
         // statistics, to match the ROOT 7 behavior (as of ROOT v6.18.0).
         dest.SetStatOverflows(TH1::kConsider);
 
-        // Transfer basic histogram data
-        fill_hist_data(dest, src);
+        // Now we're ready to transfer histogram data. First of all, let's
+        // assert that ROOT 6 and ROOT 7 use the same binning convention. This
+        // is true as of ROOT 6.18.0, but may change in the future...
+        check_binning(dest, *src.GetImpl());
+
+        // Propagate bin uncertainties, if present.
+        //
+        // This must be done before inserting any other data in the TH1,
+        // otherwise Sumw2() will perform undesirable black magic...
+        //
+        const auto& stat = src.GetImpl()->GetStat();
+        if (stat.HasBinUncertainty()) {
+            dest.Sumw2();
+            auto& sumw2 = *dest.GetSumw2();
+            for (size_t bin = 0; bin < stat.size(); ++bin) {
+                sumw2[bin] = stat.GetBinUncertainty(bin);
+            }
+        }
+
+        // Propagate basic histogram statistics
+        dest.SetEntries(stat.GetEntries());
+        for (size_t bin = 0; bin < stat.size(); ++bin) {
+            dest.AddBinContent(bin, stat.GetBinContent(bin));
+        }
 
         // Compute remaining statistics
         //
@@ -417,34 +441,28 @@ namespace detail
     public:
         // Top-level conversion function
         static Output convert(const Input& src, const char* name) {
-            return convert_hist<Output>(src, name, fill_hist_data);
+            return convert_hist<Output>(src, name, check_binning);
         }
 
     private:
-        // Transfer TH1 per-bin statistics
+        // Check that the input and output histogram use the same binning
+        // conventions (starting index, N-d array serialization order...
         //
-        // TODO: Generalize to 2D+ by adding a check that bin layout is the
-        //       same for ROOT 6 and ROOT 7.
+        // If any of these test fails, ROOT 7 binning went out of sync with
+        // ROOT 6 binning, and thusly broke our simple data transfer strategy :(
         //
-        static void fill_hist_data(Output& dest, const Input& src) {
-            // Propagate bin uncertainties, if present.
-            //
-            // This must be done before inserting any other data in the TH1,
-            // otherwise Sumw2() will perform undesirable black magic...
-            //
-            const auto& stat = src.GetImpl()->GetStat();
-            if (stat.HasBinUncertainty()) {
-                dest.Sumw2();
-                auto& sumw2 = *dest.GetSumw2();
-                for (size_t bin = 0; bin < stat.size(); ++bin) {
-                    sumw2[bin] = stat.GetBinUncertainty(bin);
-                }
+        static void check_binning(Output& dest,
+                                  const RHistImplBase<1>& src_impl)
+        {
+            const auto& dest_x = *dest.GetXaxis();
+            if (src_impl.GetBinFrom(0) != std::array{dest_x.GetBinLowEdge(0)}) {
+                throw std::runtime_error("Binning origin doesn't match");
             }
-
-            // Propagate basic histogram statistics
-            dest.SetEntries(stat.GetEntries());
-            for (size_t bin = 0; bin < stat.size(); ++bin) {
-                dest.AddBinContent(bin, stat.GetBinContent(bin));
+            if (src_impl.GetBinFrom(1) != std::array{dest_x.GetBinLowEdge(1)}) {
+                throw std::runtime_error("Bin order doesn't match");
+            }
+            if (src_impl.GetNBins() != dest.GetNcells()) {
+                throw std::runtime_error("Bin count doesn't match");
             }
         }
     };
