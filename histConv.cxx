@@ -382,6 +382,11 @@ namespace detail
         }
 
     private:
+        // Access the output histogram's axes
+        static std::array<TAxis*, 1> dest_axes(Output& dest) {
+            return {dest.GetXaxis()};
+        }
+
         // Build a TH1 with equidistant binning
         static Output build_hist_eq(const Input& src, const char* name) {
             // Get back the state that was validated by convert()
@@ -422,8 +427,8 @@ namespace detail
 
         // Transfer TH1 per-bin statistics
         //
-        // TODO: Generalize to 2D+ by adding an assertion which checks that bin
-        //       layout is the same for ROOT 6 and ROOT 7.
+        // TODO: Generalize to 2D+ by adding a check that bin layout is the
+        //       same for ROOT 6 and ROOT 7.
         //
         static void fill_hist_data(Output& dest, const Input& src) {
             // Propagate bin uncertainties, if present.
