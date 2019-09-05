@@ -5,7 +5,9 @@
 #include "TH3.h"
 
 #include <exception>
+#include <tuple>
 #include <type_traits>
+#include <utility>
 
 
 // Typing this gets old quickly
@@ -293,6 +295,127 @@ namespace detail
         dest.PutStats(stats.data());
     }
 
+    // Map from ROOT 7 axis index to ROOT 6 histogram axes
+    TAxis& get_root6_axis(TH1& hist, size_t idx) {
+        switch (idx) {
+            case 0: return *hist.GetXaxis();
+            default: throw std::runtime_error("Invalid axis index");
+        }
+    }
+    TAxis& get_root6_axis(TH2& hist, size_t idx) {
+        switch (idx) {
+            case 0: return *hist.GetXaxis();
+            case 1: return *hist.GetYaxis();
+            default: throw std::runtime_error("Invalid axis index");
+        }
+    }
+    TAxis& get_root6_axis(TH3& hist, size_t idx) {
+        switch (idx) {
+            case 0: return *hist.GetXaxis();
+            case 1: return *hist.GetYaxis();
+            case 2: return *hist.GetZaxis();
+            default: throw std::runtime_error("Invalid axis index");
+        }
+    }
+
+    // Recursive implementation of build_hist, see its documentation for details
+    //
+    // This overload is called at the end of the recursion, once all constructor
+    // parameters have been generated and the ROOT 6 constructor can be called.
+    //
+    template <class Output,
+              size_t CURR_AXIS,
+              class... BuildParams>
+    Output build_hist_impl(std::tuple<BuildParams...>&& build_params) {
+        // Build and return the requested ROOT 6 histogram
+        return std::apply(Output::Output, std::forward(build_params));;
+    }
+
+    // Recursive implementation of build_hist, see its documentation for details
+    //
+    // This overload appends parameters for an equidistant axis to the list
+    // of ROOT 6 histogram constructor parameters, recurses build_hist_impl to
+    // build the histogram, and propagates the axis configuration that cannot
+    // be set at construction time before returning.
+    //
+    template <class Output,
+              size_t CURR_AXIS,
+              class... BuildParams,
+              class... RAxis>
+    Output build_hist_impl(
+        std::tuple<BuildParams...>&& build_params,
+        const RExp::RAxisEquidistant& eq_axis,
+        const RAxis&... other_axes
+    ) {
+        // Append constructor parameters for equidistant axes to build_params
+        auto new_build_params =
+            std::tuple_cat(std::forward(build_params),
+                           std::make_tuple(eq_axis.GetNBinsNoOver(),
+                                           eq_axis.GetMinimum(),
+                                           eq_axis.GetMaximum()));
+
+        // Recurse with other axes to finish constructing the histogram
+        auto dest = build_hist_impl<Output,
+                                    CURR_AXIS+1>(std::forward(build_params),
+                                                 other_axes...);
+
+        // Propagate axis configuration that can't be set by the constructor
+        setup_axis(get_root6_axis(dest, CURR_AXIS), eq_axis);
+        return dest;
+    }
+
+    // Recursive implementation of build_hist, see its documentation for details
+    //
+    // This overload appends parameters for an irregular axis to the list
+    // of ROOT 6 histogram constructor parameters, recurses build_hist_impl to
+    // build the histogram, and propagates the axis configuration that cannot
+    // be set at construction time before returning.
+    //
+    template <class Output,
+              size_t CURR_AXIS,
+              class... BuildParams,
+              class... RAxis>
+    Output build_hist_impl(
+        std::tuple<BuildParams...>&& build_params,
+        const RExp::RAxisIrregular& irr_axis,
+        const RAxis&... other_axes
+    ) {
+        // Append constructor parameters for equidistant axes to build_params
+        auto new_build_params =
+            std::tuple_cat(std::forward(build_params),
+                           std::make_tuple(irr_axis.GetNBinsNoOver(),
+                                           irr_axis.GetBinBorders().data()));
+
+        // Recurse with other axes to finish constructing the histogram
+        auto dest = build_hist_impl<Output,
+                                    CURR_AXIS+1>(std::forward(build_params),
+                                                 other_axes...);
+
+        // Propagate axis configuration that can't be set by the constructor
+        setup_axis(get_root6_axis(dest, CURR_AXIS), irr_axis);
+        return dest;
+    }
+
+    // Build a ROOT 6 histogram configured like a ROOT 7 one
+    //
+    // The parameters are...
+    // - The ROOT 7 histogram from which configuration is to be taken
+    // - The "name" parameter of the ROOT 6 histogram constructor
+    // - axes of the src histogram (FIXME: Should query them ourselves)
+    template <class Output, class Input, class... RAxis>
+    Output build_hist(const Input& src,
+                      const char* name,
+                      const RAxis&... axes) {
+        // Compute ROOT 6 histogram title
+        auto title = convert_hist_title(src.GetImpl()->GetTitle());
+
+        // Start the histogram-building recursion by sending the initial
+        // histogram parameters, namely name and C-style title.
+        return build_hist_impl<Output, 0>(std::make_tuple(name,
+                                                          title.c_str()),
+                                          axes...);
+    }
+
     // Generic implementation of a HistConverter's top-level convert() function.
     //
     // Offloads the work of creating the output histogram and of transferring
@@ -382,11 +505,6 @@ namespace detail
         }
 
     private:
-        // Access the output histogram's axes
-        static std::array<TAxis*, 1> dest_axes(Output& dest) {
-            return {dest.GetXaxis()};
-        }
-
         // Build a TH1 with equidistant binning
         static Output build_hist_eq(const Input& src, const char* name) {
             // Get back the state that was validated by convert()
