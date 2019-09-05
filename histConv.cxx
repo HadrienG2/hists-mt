@@ -425,12 +425,12 @@ namespace detail
     // Builder functions should be given in lexicographic order:
     // EqEq, then EqIrr, then IrrEq, then IrrIrr, etc.
     //
-    template <class Output, size_t DIM, class Input>
+    template <class Output, class Input>
     Output convert_impl(
         const Input& src,
         const char* name,
         const std::array<Output(*)(const Input&, const char*),
-                         (1 << DIM)>& builders,
+                         (1 << Input::GetNDim())>& builders,
         void(*fill_hist_data)(Output&, const Input&)
     ) {
         // Document all the hacks
@@ -447,7 +447,7 @@ namespace detail
 
         // Examine axis kinds to determine which converter we should dispatch to
         size_t converter_index = 0;
-        for (size_t axis = 0; axis < DIM; ++axis) {
+        for (size_t axis = 0; axis < Input::GetNDim(); ++axis) {
             // Shift converter index to make room for new axis index
             converter_index *= AxisKind::LENGTH;
 
@@ -498,10 +498,10 @@ namespace detail
     public:
         // Top-level conversion function
         static Output convert(const Input& src, const char* name) {
-            return convert_impl<Output, 1>(src,
-                                           name,
-                                           {build_hist_eq, build_hist_irr},
-                                           fill_hist_data);
+            return convert_impl<Output>(src,
+                                        name,
+                                        {build_hist_eq, build_hist_irr},
+                                        fill_hist_data);
         }
 
     private:
