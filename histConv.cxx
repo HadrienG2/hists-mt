@@ -362,8 +362,8 @@ namespace detail
     // If any of these test fails, ROOT 7 binning went out of sync with
     // ROOT 6 binning, and thusly broke our simple data transfer strategy :(
     //
-    template <int DIMS>
-    void check_binning(const TH1& dest, const RHistImplBase<DIMS>& src_impl)
+    template <class THx, int DIMS>
+    void check_binning(const THx& dest, const RHistImplBase<DIMS>& src_impl)
     {
         if (src_impl.GetBinFrom(0) != get_bin_from_root6(dest, 0)) {
             throw std::runtime_error("Binning origin doesn't match");
@@ -538,6 +538,15 @@ int main() {
     // Compilation error: data type not supported by ROOT 6. We fail fast.
     /* RExp::RHist<1, size_t> s9{{1000, 0., 1.}};
     auto d9 = into_root6_hist(s9, "Yolo9"); */
+
+    // Try it with a 2D histogram
+    RExp::RHist<2, char> s10{{1000, 0., 1.}, {1000, 0., 1.}};
+    auto d10 = into_root6_hist(s10, "Yolo10");
+
+    // Try it with a 3D histogram
+    // FIXME: Why is the third RAxisConfig interpreted weirdly? ROOT bug?
+    RExp::RHist<3, char> s11{{1000, 0., 1.}, {1000, 0., 1.},  {1000, 0., 1.}};
+    auto d11 = into_root6_hist(s11, "Yolo11");
 
     // TODO: Add more sophisticated tests
 
