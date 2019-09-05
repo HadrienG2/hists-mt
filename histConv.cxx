@@ -394,7 +394,7 @@ namespace detail
         //        pair, as ResetStats alters more than those stats...
         //
         //        The same problem occurs with the higher-order statistics
-        //        computed by TH2+.
+        //        computed by TH2+, but this approach is dimension-agnostic.
         //
         std::array<Double_t, TH1::kNstat> stats;
         dest.GetStats(stats.data());
