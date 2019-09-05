@@ -1,5 +1,7 @@
 #include "ROOT/RAxis.hxx"
 #include "ROOT/RHist.hxx"
+#include "ROOT/RHistImpl.hxx"
+#include "TAxis.h"
 #include "TH1.h"
 #include "TH2.h"
 #include "TH3.h"
@@ -48,9 +50,7 @@ namespace detail
     struct HistConverter
     {
         // Tell the user that we haven't implemented this conversion (yet?)
-        static_assert(
-            always_false<Input>,
-            "This ROOT 7 -> ROOT 6 histogram conversion is not supported");
+        static_assert(always_false<Input>, "Unsupported histogram conversion");
 
         // Dummy conversion function to keep compiler errors bounded
         static auto convert(const Input& src, const char* name);
@@ -226,16 +226,22 @@ namespace detail
 
     // ROOT 7-like GetLowBinEdge for ROOT 6
     std::array<Double_t, 1> get_low_bin_edge(const TH1& hist, size_t bin) {
-        return {hist.GetXaxis()->GetBinLowEdge(bin)};
+        std::array<Int_t, 3> bin_xyz;
+        hist.GetBinXYZ(bin, bin_xyz[0], bin_xyz[1], bin_xyz[2]);
+        return {hist.GetXaxis()->GetBinLowEdge(bin_xyz[0])};
     }
     std::array<Double_t, 2> get_low_bin_edge(const TH2& hist, size_t bin) {
-        return {hist.GetXaxis()->GetBinLowEdge(bin),
-                hist.GetYaxis()->GetBinLowEdge(bin)};
+        std::array<Int_t, 3> bin_xyz;
+        hist.GetBinXYZ(bin, bin_xyz[0], bin_xyz[1], bin_xyz[2]);
+        return {hist.GetXaxis()->GetBinLowEdge(bin_xyz[0]),
+                hist.GetYaxis()->GetBinLowEdge(bin_xyz[1])};
     }
     std::array<Double_t, 3> get_low_bin_edge(const TH3& hist, size_t bin) {
-        return {hist.GetXaxis()->GetBinLowEdge(bin),
-                hist.GetYaxis()->GetBinLowEdge(bin),
-                hist.GetZaxis()->GetBinLowEdge(bin)};
+        std::array<Int_t, 3> bin_xyz;
+        hist.GetBinXYZ(bin, bin_xyz[0], bin_xyz[1], bin_xyz[2]);
+        return {hist.GetXaxis()->GetBinLowEdge(bin_xyz[0]),
+                hist.GetYaxis()->GetBinLowEdge(bin_xyz[1]),
+                hist.GetZaxis()->GetBinLowEdge(bin_xyz[2])};
     }
 
     // Transfer histogram axis settings which exist in both equidistant and
