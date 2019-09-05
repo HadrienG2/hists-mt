@@ -420,7 +420,7 @@ namespace detail
             return dest;
         }
 
-        // Transfer histogram statistics (dimension-dependent part)
+        // Transfer TH1 per-bin statistics
         //
         // TODO: Generalize to 2D+ by adding an assertion which checks that bin
         //       layout is the same for ROOT 6 and ROOT 7.
