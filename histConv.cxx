@@ -217,13 +217,49 @@ namespace detail
         dest.SetCanExtend((src.GetNOverflowBins() == 0));
     }
 
-    // Transfer histogram settings which exist in both equidistant and
-    // irregular binning configurations
+    // Transfer histogram settings other than axis settings.
+    //
+    // This function is dimension-independent, and delegates the dimension-
+    // specific work of transfering histogram entries and weights to the
+    // fill_hist_data callback. Later, this callback will be generalized too.
+    //
     template <class Output, class Input>
-    static void setup_hist_common(Output& dest, const Input& /* src */) {
+    static void setup_hist(Output& dest,
+                           const Input& src,
+                           void(*fill_hist_data)(Output&, const Input&))
+    {
         // Make sure that under- and overflow bins are included in the
         // statistics, to match the ROOT 7 behavior (as of ROOT v6.18.0).
         dest.SetStatOverflows(TH1::kConsider);
+
+        // Transfer basic histogram data
+        fill_hist_data(dest, src);
+
+        // Compute remaining statistics
+        //
+        // FIXME: If the input RHist computes all of...
+        //        - fTsumw (total sum of weights)
+        //        - fTsumw2 (total sum of square of weights)
+        //        - fTsumwx (total sum of weight*x)
+        //        - fTsumwx2 (total sum of weight*x*x)
+        //
+        //        ...then we should propagate those statistics to the TH1. The
+        //        same applies for the higher-order statistics computed by TH2+.
+        //
+        //        But as of ROOT 6.18.0, we can never do this, because the
+        //        RHistDataMomentUncert stats associated with fTsumwx and
+        //        fTsumwx2 do not expose their contents publicly.
+        //
+        //        Therefore, we must always ask TH1 to do the computation
+        //        for us. It's better to do so using a GetStats/PutStats
+        //        pair, as ResetStats alters more than those stats...
+        //
+        //        The same problem occurs with the higher-order statistics
+        //        computed by TH2+.
+        //
+        std::array<Double_t, TH1::kNstat> stats;
+        dest.GetStats(stats.data());
+        dest.PutStats(stats.data());
     }
 
     // Generic implementation of a HistConverter's top-level convert() function,
@@ -337,11 +373,8 @@ namespace detail
                 }
             } */
 
-            // Propagate axis-independent histogram properties
-            setup_hist_common(dest, src);
-
-            // Propagate histogram contents
-            setup_hist_data(dest, src);
+            // Propagate axis-independent histogram data
+            setup_hist(dest, src, fill_hist_data);
 
             return dest;
         }
@@ -362,17 +395,18 @@ namespace detail
             // For irregular axes, there is nothing else to propagate.
             setup_axis_common(*dest.GetXaxis(), irr_axis);
 
-            // Propagate axis-independent histogram properties
-            setup_hist_common(dest, src);
-
-            // Propagate histogram contents
-            setup_hist_data(dest, src);
+            // Propagate axis-independent histogram data
+            setup_hist(dest, src, fill_hist_data);
 
             return dest;
         }
 
-        // Transfer histogram-wide configuration and contents
-        static void setup_hist_data(Output& dest, const Input& src) {
+        // Transfer histogram statistics (dimension-dependent part)
+        //
+        // TODO: Generalize to 2D+ by adding an assertion which checks that bin
+        //       layout is the same for ROOT 6 and ROOT 7.
+        //
+        static void fill_hist_data(Output& dest, const Input& src) {
             // Propagate bin uncertainties, if present.
             //
             // This must be done before inserting any other data in the TH1,
@@ -392,39 +426,22 @@ namespace detail
             for (size_t bin = 0; bin < stat.size(); ++bin) {
                 dest.AddBinContent(bin, stat.GetBinContent(bin));
             }
-
-            // FIXME: If the input RHist computes all of...
-            //        - fTsumw (total sum of weights)
-            //        - fTsumw2 (total sum of square of weights)
-            //        - fTsumwx (total sum of weight*x)
-            //        - fTsumwx2 (total sum of weight*x*x)
-            //
-            //        ...then we should propagate those statistics to the TH1.
-            //
-            //        But as of ROOT 6.18.0, we can never do this, because the
-            //        RHistDataMomentUncert stats associated with fTsumwx and
-            //        fTsumwx2 do not expose their contents publicly.
-            //
-            //        Therefore, we must always ask TH1 to do the computation
-            //        for us. It's better to do so using a GetStats/PutStats
-            //        pair, as ResetStats alters more than those stats...
-            //
-            std::array<Double_t, TH1::kNstat> stats;
-            dest.GetStats(stats.data());
-            dest.PutStats(stats.data());
         }
     };
 
 
     // TODO: Support other kinds of histogram conversions.
     //
-    //       At that time, I'll probably want to extract some general-purpose
-    //       utilities from the TH1 converter, deduplicating those.
+    //       I am currently the process of extracting dimension-independent
+    //       and dimension-generic utilities from the TH1 HistConverter.
+    //       Ultimately, the dimension-specific part should become very small,
+    //       basically just calling GetXaxis and friends, and then writing
+    //       HistConverters for TH2+ will be trivial.
     //
     //       For 2D+ histogram, I'll also need to check if the bin data is
     //       ordered in the same way in ROOT 6 and ROOT 7. I should ideally have
-    //       some kind of static assertion that checks that it remains the case
-    //       as ROOT 7 development marches on.
+    //       some kind of assertion that checks that it remains the case as
+    //       ROOT 7 development marches on.
     //
     //       Alternatively, I could always work in local bin coordinates, but
     //       that would greatly reduce my ability to factor out stuff between
