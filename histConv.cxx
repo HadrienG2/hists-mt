@@ -348,6 +348,11 @@ namespace detail
             // We've reached the bottom of the histogram construction recursion.
             // All histogram constructor parameters have been collected, we can
             // now construct the ROOT 6 histogram.
+            //
+            // FIXME: Either check that a suitable constructor exists via SFINAE
+            //        or make sure that all ROOT 6 hists implement all possible
+            //        constructors. Currently, TH3 doesn't.
+            //
             return std::make_from_tuple<Output>(std::move(build_params));
         } else {
             // The loop shouldn't reach this point, there's a bug in the code
@@ -545,8 +550,8 @@ int main() {
 
     // Try it with a 3D histogram
     // FIXME: Why is the third RAxisConfig interpreted weirdly? ROOT bug?
-    RExp::RHist<3, char> s11{{1000, 0., 1.}, {1000, 0., 1.},  {1000, 0., 1.}};
-    auto d11 = into_root6_hist(s11, "Yolo11");
+    /* RExp::RHist<3, char> s11{{1000, 0., 1.}, {1000, 0., 1.},  {1000, 0., 1.}};
+    auto d11 = into_root6_hist(s11, "Yolo11"); */
 
     // TODO: Add more sophisticated tests
 

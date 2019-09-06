@@ -129,3 +129,16 @@
 
 - Another bug report: the stats collected by RHistDataMomentUncert are not
   exposed to the outside world...
+
+- Another one: TH3 doesn't provide constructors for all supported axes
+  configuration. Working around this while keeping compiler error sane would
+  require me a fair bit of code.
+
+- As of september 6, I have a prototype of dimension-agnostic ROOT 7 -> ROOT 6
+  histogram conversions. But it still needs extensive testing, and preliminary
+  "does it build" experiments already reveal some issues for TH3. Time for...
+    * Lots and lots of unit testing.
+    * ROOT bug reports and PRs.
+
+- Once that is done, can look into having the functionality integrated in ROOT,
+  and other MarlinMT histogramming matters like Processor setup & IO.
