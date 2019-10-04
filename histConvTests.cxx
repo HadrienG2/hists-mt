@@ -152,13 +152,16 @@ void test_conversion(std::array<RExp::RAxisConfig, DIMS>&& axis_configs) {
   std::string name = "Hist" + std::to_string(ctr);
   ctr += 1;
 
-  // Generate a ROOT 7 histogram and convert it to ROOT 6
+  // Generate a ROOT 7 histogram
   RExp::RHist<DIMS, PRECISION, STAT...> source(axis_configs);
+  // TODO: Fill it with some test data
+
+  // Convert it to ROOT 6 format and check the output
   try
   {
-    // TODO: Fill in some source data and check the output data in dest
     auto dest = into_root6_hist(std::move(source), name.c_str());
     // TODO: Check histogram configuration
+    // TODO: Check output data and statistics
   }
   catch (const std::runtime_error& e)
   {
