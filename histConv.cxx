@@ -183,6 +183,63 @@ namespace detail
         CheckRoot6Type<DIMENSIONS, PRECISION>::value;
 
 
+    // === BUILD A THx, FAILING AT RUNTIME IF NO CONSTRUCTOR EXISTS ===
+
+    // TH1 and TH2 constructors enable building histograms with all supported
+    // axes configurations. TH3, however, only provide constructors for
+    // all-equidistant and all-irregular axis configurations.
+    //
+    // We (ahem) respect this design choice, so we fail at runtime if an
+    // RHist<3, T> with an incompatible axis configuration is converted.
+    //
+    // So, in the general case, we do nothing...
+    //
+    template <int DIMENSIONS, typename... BuildParams>
+    struct MakeRoot6Hist {
+        template <typename Output>
+        static Output make(std::tuple<BuildParams...>&& build_params) {
+            return std::make_from_tuple<Output>(std::move(build_params));
+        }
+    };
+
+    // ...but for TH3, we generally fail...
+    template <typename... BuildParams>
+    struct MakeRoot6Hist<3, BuildParams...> {
+        template <typename Output>
+        static Output make(std::tuple<BuildParams...>&& build_params) {
+            throw std::runtime_error("Unsupported TH3 axis configuration");
+        }
+    };
+
+    // ...except in the two cases where it actually works.
+    template<>
+    struct MakeRoot6Hist<3, const char*, const char*,
+                            Int_t, Double_t, Double_t,
+                            Int_t, Double_t, Double_t,
+                            Int_t, Double_t, Double_t> {
+        template <typename Output>
+        static Output make(std::tuple<const char*, const char*,
+                                      Int_t, Double_t, Double_t,
+                                      Int_t, Double_t, Double_t,
+                                      Int_t, Double_t, Double_t>&& th3_params) {
+            return std::make_from_tuple<Output>(std::move(th3_params));
+        }
+    };
+    template<>
+    struct MakeRoot6Hist<3, const char*, const char*,
+                            Int_t, const Double_t*,
+                            Int_t, const Double_t*,
+                            Int_t, const Double_t*> {
+        template <typename Output>
+        static Output make(std::tuple<const char*, const char*,
+                                      Int_t, const Double_t*,
+                                      Int_t, const Double_t*,
+                                      Int_t, const Double_t*>&& th3_params) {
+            return std::make_from_tuple<Output>(std::move(th3_params));
+        }
+    };
+
+
     // === DIMENSION-GENERIC RHIST -> THx CONVERSION BUILDING BLOCKS ===
 
     // Convert a ROOT 7 histogram title into a ROOT 6 histogram title
@@ -261,17 +318,6 @@ namespace detail
     using RHistImplBase = RExp::Detail::RHistImplPrecisionAgnosticBase<DIMS>;
 
     // Histogram construction and configuration recursion for convert_hist
-    //
-    // FIXME: This generates calls to the TH* class for all possible
-    //        combinations of equidistant and irregular axes. But ROOT 6's TH3
-    //        actually only supports all-regular or all-irregular axis
-    //        configurations. Who should be fixed, ROOT 6 or this code?
-    //
-    //        If it's this code, then a possibility is to have a SFINAE-based
-    //        THx builder which is specialized for incompatible TH3 constructor
-    //        parameters and throws an exception at runtime instead of failing
-    //        at compile time.
-    //
     template <class Output, int AXIS, int DIMS, class... BuildParams>
     Output convert_hist_loop(const RHistImplBase<DIMS>& src_impl,
                              std::tuple<BuildParams...>&& build_params) {
@@ -289,10 +335,12 @@ namespace detail
                 // Append equidistant axis constructor parameters to the list of
                 // ROOT 6 histogram constructor parameters
                 auto new_build_params =
-                    std::tuple_cat(std::move(build_params),
-                                   std::make_tuple(eq_axis.GetNBinsNoOver(),
-                                                   eq_axis.GetMinimum(),
-                                                   eq_axis.GetMaximum()));
+                    std::tuple_cat(
+                        std::move(build_params),
+                        std::make_tuple((Int_t)(eq_axis.GetNBinsNoOver()),
+                                        (Double_t)(eq_axis.GetMinimum()),
+                                        (Double_t)(eq_axis.GetMaximum()))
+                    );
 
                 // Process other axes and construct the histogram
                 auto dest =
@@ -334,8 +382,10 @@ namespace detail
                 auto new_build_params =
                     std::tuple_cat(
                         std::move(build_params),
-                        std::make_tuple(irr_axis.GetNBinsNoOver(),
-                                        irr_axis.GetBinBorders().data())
+                        std::make_tuple(
+                            (Int_t)(irr_axis.GetNBinsNoOver()),
+                            (const Double_t*)(irr_axis.GetBinBorders().data())
+                        )
                     );
 
                 // Process other axes and construct the histogram
@@ -359,12 +409,9 @@ namespace detail
             // We've reached the bottom of the histogram construction recursion.
             // All histogram constructor parameters have been collected, we can
             // now construct the ROOT 6 histogram.
-            //
-            // FIXME: Either check that a suitable constructor exists via SFINAE
-            //        or make sure that all ROOT 6 hists implement all possible
-            //        constructors. Currently, TH3 doesn't.
-            //
-            return std::make_from_tuple<Output>(std::move(build_params));
+            return MakeRoot6Hist<DIMS, BuildParams...>::template make<Output>(
+                std::move(build_params)
+            );
         } else {
             // The loop shouldn't reach this point, there's a bug in the code
             static_assert(always_false<Output>,
@@ -563,9 +610,8 @@ int main() {
     auto d10 = into_root6_hist(s10, "Yolo10");
 
     // Try it with a 3D histogram
-    // FIXME: Cannot work yet, see doc of convert_hist_loop for the explanation.
-    /* RExp::RHist<3, char> s11(eq_axis, eq_axis,  eq_axis);
-    auto d11 = into_root6_hist(s11, "Yolo11"); */
+    RExp::RHist<3, char> s11(eq_axis, eq_axis,  eq_axis);
+    auto d11 = into_root6_hist(s11, "Yolo11");
 
     // TODO: Add more sophisticated tests
 
