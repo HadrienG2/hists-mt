@@ -192,7 +192,8 @@ namespace detail
     // We (ahem) respect this design choice, so we fail at runtime if an
     // RHist<3, T> with an incompatible axis configuration is converted.
     //
-    // So, in the general case, we do nothing...
+    // So, in the general case, we just build a ROOT 6 histogram with the
+    // specified constructor parameters...
     //
     template <int DIMENSIONS, typename... BuildParams>
     struct MakeRoot6Hist {
@@ -206,7 +207,7 @@ namespace detail
     template <typename... BuildParams>
     struct MakeRoot6Hist<3, BuildParams...> {
         template <typename Output>
-        static Output make(std::tuple<BuildParams...>&& build_params) {
+        static Output make(std::tuple<BuildParams...>&& th3_params) {
             throw std::runtime_error("Unsupported TH3 axis configuration");
         }
     };
@@ -240,7 +241,7 @@ namespace detail
     };
 
 
-    // === DIMENSION-GENERIC RHIST -> THx CONVERSION BUILDING BLOCKS ===
+    // === OTHER DIMENSION-GENERIC RHIST -> THx CONVERSION BUILDING BLOCKS ===
 
     // Convert a ROOT 7 histogram title into a ROOT 6 histogram title
     //
