@@ -101,17 +101,13 @@ RExp::RAxisConfig gen_axis_config(RNG& rng) {
 
     // Irregular axis
     case 1: {
-      // This method will yield ~logarithmic bin spacing
-      // (if that doesn't work, bias more towards regular binning)
-      std::vector<Double_t> bin_borders(
-        1,
-        gen_float(AXIS_LIMIT_RANGE.first, AXIS_LIMIT_RANGE.second)
-      );
-      for (Int_t i = 1; i < num_bins; ++i) {
+      std::vector<Double_t> bin_borders;
+      for (Int_t i = 0; i < num_bins; ++i) {
         bin_borders.push_back(
-          gen_float(bin_borders[i-1], AXIS_LIMIT_RANGE.second)
+          gen_float(AXIS_LIMIT_RANGE.first, AXIS_LIMIT_RANGE.second)
         );
       }
+      std::sort(bin_borders.begin(), bin_borders.end());
 
       if (has_title) {
         return RExp::RAxisConfig(gen_axis_title(),
