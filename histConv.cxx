@@ -261,6 +261,12 @@ namespace detail
     using RHistImplBase = RExp::Detail::RHistImplPrecisionAgnosticBase<DIMS>;
 
     // Histogram construction and configuration recursion for convert_hist
+    //
+    // FIXME: This generates calls to the TH* class for all possible
+    //        combinations of equidistant and irregular axes. But ROOT 6's TH3
+    //        actually only supports all-regular or all-irregular axis
+    //        configurations. Who should be fixed, ROOT 6 or this code?
+    //
     template <class Output, int AXIS, int DIMS, class... BuildParams>
     Output convert_hist_loop(const RHistImplBase<DIMS>& src_impl,
                              std::tuple<BuildParams...>&& build_params) {
@@ -504,53 +510,56 @@ auto into_root6_hist(const Root7Hist& src, const char* name) {
 
 // Test for the conversion machinery
 int main() {
+    // FIXME: Test with irregular axes, with more axes configurations...
+    const RExp::RAxisConfig eq_axis(1000, 0., 1.);
+
     // Works (Minimal stats that we need)
-    RExp::RHist<1, char, RExp::RHistStatContent> s1{{1000, 0., 1.}};
+    RExp::RHist<1, char, RExp::RHistStatContent> s1(eq_axis);
     auto d1 = into_root6_hist(s1, "Yolo1");
 
     // Also works (ROOT 7 implicitly adds an RHistStatContent here)
-    RExp::RHist<1, char> s2{{1000, 0., 1.}};
+    RExp::RHist<1, char> s2(eq_axis);
     auto d2 = into_root6_hist(s2, "Yolo2");
 
     // Also works (More stats than actually needed)
     RExp::RHist<1,
                 char,
                 RExp::RHistStatContent,
-                RExp::RHistDataMomentUncert> s3{{1000, 0., 1.}};
+                RExp::RHistDataMomentUncert> s3(eq_axis);
     auto d3 = into_root6_hist(s3, "Yolo3");
 
     // Compilation errors: insufficient stats. Unlike ROOT, we fail fast.
     /* RExp::RHist<1,
                    char,
-                   RExp::RHistDataMomentUncert> s4{{1000, 0., 1.}};
+                   RExp::RHistDataMomentUncert> s4(eq_axis);
     auto d4 = into_root6_hist(s4, "Yolo4"); */
     /* RExp::RHist<1,
                    char,
                    RExp::RHistStatUncertainty,
-                   RExp::RHistDataMomentUncert> s4{{1000, 0., 1.}};
+                   RExp::RHistDataMomentUncert> s4(eq_axis);
     auto d4 = into_root6_hist(s4, "Yolo4"); */
 
     // Data types other than char work just as well, if supported by ROOT 6
-    RExp::RHist<1, short> s5{{1000, 0., 1.}};
+    RExp::RHist<1, short> s5(eq_axis);
     auto d5 = into_root6_hist(s5, "Yolo5");
-    RExp::RHist<1, int> s6{{1000, 0., 1.}};
+    RExp::RHist<1, int> s6(eq_axis);
     auto d6 = into_root6_hist(s6, "Yolo6");
-    RExp::RHist<1, float> s7{{1000, 0., 1.}};
+    RExp::RHist<1, float> s7(eq_axis);
     auto d7 = into_root6_hist(s7, "Yolo7");
-    RExp::RHist<1, double> s8{{1000, 0., 1.}};
+    RExp::RHist<1, double> s8(eq_axis);
     auto d8 = into_root6_hist(s8, "Yolo8");
 
     // Compilation error: data type not supported by ROOT 6. We fail fast.
-    /* RExp::RHist<1, size_t> s9{{1000, 0., 1.}};
+    /* RExp::RHist<1, size_t> s9(eq_axis);
     auto d9 = into_root6_hist(s9, "Yolo9"); */
 
     // Try it with a 2D histogram
-    RExp::RHist<2, char> s10{{1000, 0., 1.}, {1000, 0., 1.}};
+    RExp::RHist<2, char> s10(eq_axis, eq_axis);
     auto d10 = into_root6_hist(s10, "Yolo10");
 
     // Try it with a 3D histogram
-    // FIXME: Why is the third RAxisConfig interpreted weirdly? ROOT bug?
-    /* RExp::RHist<3, char> s11{{1000, 0., 1.}, {1000, 0., 1.},  {1000, 0., 1.}};
+    // FIXME: Cannot work yet, see doc of convert_hist_loop for the explanation.
+    /* RExp::RHist<3, char> s11(eq_axis, eq_axis,  eq_axis);
     auto d11 = into_root6_hist(s11, "Yolo11"); */
 
     // TODO: Add more sophisticated tests
