@@ -142,64 +142,65 @@ RExp::RAxisConfig gen_axis_config(RNG& rng) {
 }
 
 
+// Test runner which catches exceptions and prints them in a friendly way
+template <int DIMS,
+          class PRECISION,
+          template <int D_, class P_> class... STAT>
+void test_conversion(std::array<RExp::RAxisConfig, DIMS>&& axis_configs) {
+  // ROOT 6 is picky about unique names
+  static size_t ctr = 0;
+  std::string name = "Hist" + std::to_string(ctr);
+  ctr += 1;
+
+  // Generate a ROOT 7 histogram and convert it to ROOT 6
+  RExp::RHist<DIMS, PRECISION, STAT...> source(std::move(axis_configs));
+  auto dest = into_root6_hist(std::move(source), name.c_str());
+
+  // TODO: Catch exceptions
+  // TODO: Check the configuration
+  // TODO: Fill it with data and check the data
+}
+
+
 // Test for the conversion machinery
 int main() {
-  // For the most part, we'll use randomized testing...
+  // For the most part, we'll use reproducible but pseudo-random test data...
   RNG rng;
-
-  // ...but ROOT 6 is picky about unique names
-  size_t ctr = 0;
-  auto convert_to_root6 = [&ctr](auto source) -> auto {
-    ctr += 1;
-    std::string name = "Hist" + std::to_string(ctr);
-    return into_root6_hist(source, name.c_str());
-  };
 
   // Anyway, let's start the test
   for (size_t i = 0; i < NUM_TEST_RUNS; ++i) {
     // Works (Minimal stats that we need)
-    RExp::RHist<1, char, RExp::RHistStatContent> s1(gen_axis_config(rng));
-    auto d1 = convert_to_root6(s1);
+    test_conversion<1, char, RExp::RHistStatContent>({gen_axis_config(rng)});
 
     // Also works (ROOT 7 implicitly adds an RHistStatContent here)
-    RExp::RHist<1, char> s2(gen_axis_config(rng));
-    auto d2 = convert_to_root6(s2);
+    test_conversion<1, char>({gen_axis_config(rng)});
 
     // Also works (More stats than actually needed)
-    RExp::RHist<1,
-                char,
-                RExp::RHistStatContent,
-                RExp::RHistDataMomentUncert> s3(gen_axis_config(rng));
-    auto d3 = convert_to_root6(s3);
+    test_conversion<1,
+                    char,
+                    RExp::RHistStatContent,
+                    RExp::RHistDataMomentUncert>({gen_axis_config(rng)});
 
     // Compilation errors: insufficient stats. Unlike ROOT, we fail fast.
-    /* RExp::RHist<1,
-                   char,
-                   RExp::RHistDataMomentUncert> s4(gen_axis_config(rng));
-    auto d4 = convert_to_root6(s4); */
-    /* RExp::RHist<1,
-                   char,
-                   RExp::RHistStatUncertainty,
-                   RExp::RHistDataMomentUncert> s4(gen_axis_config(rng));
-    auto d4 = convert_to_root6(s4); */
+    /* test_conversion<1,
+                       char,
+                       RExp::RHistDataMomentUncert>({gen_axis_config(rng)}); */
+    /* test_conversion<1,
+                       char,
+                       RExp::RHistStatUncertainty,
+                       RExp::RHistDataMomentUncert>({gen_axis_config(rng)}); */
 
     // Data types other than char work just as well, if supported by ROOT 6
-    RExp::RHist<1, short> s5(gen_axis_config(rng));
-    auto d5 = convert_to_root6(s5);
-    RExp::RHist<1, int> s6(gen_axis_config(rng));
-    auto d6 = convert_to_root6(s6);
-    RExp::RHist<1, float> s7(gen_axis_config(rng));
-    auto d7 = convert_to_root6(s7);
-    RExp::RHist<1, double> s8(gen_axis_config(rng));
-    auto d8 = convert_to_root6(s8);
+    test_conversion<1, short>({gen_axis_config(rng)});
+    test_conversion<1, int>({gen_axis_config(rng)});
+    test_conversion<1, float>({gen_axis_config(rng)});
+    test_conversion<1, double>({gen_axis_config(rng)});
 
     // Compilation error: data type not supported by ROOT 6. We fail fast.
-    /* RExp::RHist<1, size_t> s9(gen_axis_config(rng));
-    auto d9 = convert_to_root6(s9); */
+    /* test_conversion<1, size_t>({gen_axis_config(rng)}); */
 
     // Try it with a 2D histogram
-    RExp::RHist<2, char> s10(gen_axis_config(rng), gen_axis_config(rng));
-    auto d10 = convert_to_root6(s10);
+    test_conversion<2, char>({gen_axis_config(rng), gen_axis_config(rng)});
 
     // Try it with a 3D histogram
     auto axis1 = gen_axis_config(rng);
@@ -207,8 +208,7 @@ int main() {
     while (axis2.GetKind() != axis1.GetKind()) axis2 = gen_axis_config(rng);
     auto axis3 = gen_axis_config(rng);
     while (axis3.GetKind() != axis1.GetKind()) axis3 = gen_axis_config(rng);
-    RExp::RHist<3, char> s11(axis1, axis2,  axis3);
-    auto d11 = convert_to_root6(s11);
+    test_conversion<3, char>({axis1, axis2,  axis3});
 
     // TODO: Also test the failing case with diverging axis kinds
   }
