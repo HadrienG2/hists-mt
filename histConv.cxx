@@ -267,6 +267,11 @@ namespace detail
     //        actually only supports all-regular or all-irregular axis
     //        configurations. Who should be fixed, ROOT 6 or this code?
     //
+    //        If it's this code, then a possibility is to have a SFINAE-based
+    //        THx builder which is specialized for incompatible TH3 constructor
+    //        parameters and throws an exception at runtime instead of failing
+    //        at compile time.
+    //
     template <class Output, int AXIS, int DIMS, class... BuildParams>
     Output convert_hist_loop(const RHistImplBase<DIMS>& src_impl,
                              std::tuple<BuildParams...>&& build_params) {
