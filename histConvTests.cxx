@@ -253,7 +253,7 @@ void test_conversion(std::array<RExp::RAxisConfig, DIMS>&& axis_configs) {
 
     std::cout << std::endl;
 
-    // Abort the test if an error occurs
+    // TODO: Decide if these semantics are wanted
     std::abort();
   }
 }
@@ -317,8 +317,6 @@ int main() {
                                  gen_axis_config(rng),
                                  gen_axis_config(rng)}); */
   }
-
-  std::cout << "All tests completed successfully." << std::endl;
 
   return 0;
 }
