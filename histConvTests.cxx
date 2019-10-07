@@ -182,7 +182,7 @@ void test_conversion(std::array<RExp::RAxisConfig, DIMS>&& axis_configs) {
       std::cout << "  - " << axis++ << ": ";
 
       auto print_header = [&axis_config]() {
-        std::cout << " (" << axis_config.GetNBins() << " bins";
+        std::cout << " (" << axis_config.GetNBins() << " bins inc. overflow";
       };
       auto print_equidistant = [&axis_config, &print_header]() {
         print_header();

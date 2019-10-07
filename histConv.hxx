@@ -219,7 +219,7 @@ namespace detail
                                                  0,
                                                  &status);
             s << "Unsupported TH3 axis configuration"
-              << " (no constructor from arguments " << args_type_name
+              << " (no constructor from argument-tuple " << args_type_name
               << ')';
             free(args_type_name);
             throw std::runtime_error(s.str());
