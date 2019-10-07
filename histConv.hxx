@@ -194,29 +194,24 @@ namespace detail
     // So, in the general case, we just build a ROOT 6 histogram with the
     // specified constructor parameters...
     //
-    template <int DIMENSIONS, typename... BuildParams>
+    template <int DIMENSIONS>
     struct MakeRoot6Hist {
-        template <typename Output>
+        template <typename Output, typename... BuildParams>
         static Output make(std::tuple<BuildParams...>&& build_params) {
             return std::make_from_tuple<Output>(std::move(build_params));
         }
     };
 
-    // ...but for TH3, we generally fail...
-    template <typename... BuildParams>
-    struct MakeRoot6Hist<3, BuildParams...> {
-        template <typename Output>
+    // ...but for TH3, we must exercise more caution:
+    template <>
+    struct MakeRoot6Hist<3> {
+        // Generally speaking, we fail at runtime...
+        template <typename Output, typename... BuildParams>
         static Output make(std::tuple<BuildParams...>&& th3_params) {
             throw std::runtime_error("Unsupported TH3 axis configuration");
         }
-    };
 
-    // ...except in the two cases where it actually works.
-    template<>
-    struct MakeRoot6Hist<3, const char*, const char*,
-                            Int_t, Double_t, Double_t,
-                            Int_t, Double_t, Double_t,
-                            Int_t, Double_t, Double_t> {
+        // ...except in the two cases where it actually works!
         template <typename Output>
         static Output make(std::tuple<const char*, const char*,
                                       Int_t, Double_t, Double_t,
@@ -224,12 +219,6 @@ namespace detail
                                       Int_t, Double_t, Double_t>&& th3_params) {
             return std::make_from_tuple<Output>(std::move(th3_params));
         }
-    };
-    template<>
-    struct MakeRoot6Hist<3, const char*, const char*,
-                            Int_t, const Double_t*,
-                            Int_t, const Double_t*,
-                            Int_t, const Double_t*> {
         template <typename Output>
         static Output make(std::tuple<const char*, const char*,
                                       Int_t, const Double_t*,
@@ -409,7 +398,7 @@ namespace detail
             // We've reached the bottom of the histogram construction recursion.
             // All histogram constructor parameters have been collected, we can
             // now construct the ROOT 6 histogram.
-            return MakeRoot6Hist<DIMS, BuildParams...>::template make<Output>(
+            return MakeRoot6Hist<DIMS>::template make<Output>(
                 std::move(build_params)
             );
         } else {
