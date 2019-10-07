@@ -40,107 +40,106 @@ template auto into_root6_hist(const RExp::RHist<3, Double_t>& src, const char* n
 
 // Generate a random ROOT 7 axis configuration
 RExp::RAxisConfig gen_axis_config(RNG& rng) {
-    // Cross-check that RNG is alright and set up some useful consts
-    constexpr Int_t NUM_BINS_CHOICE =
-      NUM_BINS_RANGE.second - NUM_BINS_RANGE.first;
-    constexpr auto RNG_CHOICE = RNG::max() - RNG::min();
-    static_assert(RNG_CHOICE > NUM_BINS_CHOICE, "Unexpectedly small RNG range");
+  // Cross-check that RNG is alright and set up some useful consts
+  constexpr Int_t NUM_BINS_CHOICE =
+    NUM_BINS_RANGE.second - NUM_BINS_RANGE.first;
+  constexpr auto RNG_CHOICE = RNG::max() - RNG::min();
+  static_assert(RNG_CHOICE > NUM_BINS_CHOICE, "Unexpectedly small RNG range");
 
-    // Generate number of histogram bins
-    Int_t num_bins =
-        NUM_BINS_RANGE.first + (rng() - rng.min()) % NUM_BINS_CHOICE;
+  // Generate number of histogram bins
+  Int_t num_bins = NUM_BINS_RANGE.first + (rng() - rng.min()) % NUM_BINS_CHOICE;
 
-    // Some random number generation helpers
-    auto gen_axis_title = [&rng]() -> std::string {
-      return "Axis " + std::to_string(rng());
-    };
-    // FIXME: Re-enable labels once they're less broken in ROOT
-    /* auto gen_axis_label = [&rng]() -> std::string {
-      return std::to_string(rng());
-    }; */
-    auto gen_bool = [&rng]() -> bool {
-      return (rng() > rng.min() + RNG_CHOICE / 2);
-    };
-    auto gen_float = [&rng](Double_t min, Double_t max) -> Double_t {
-      return min + (rng() - rng.min()) * (max - min) / (rng.max() - rng.min());
-    };
+  // Some random number generation helpers
+  auto gen_axis_title = [&rng]() -> std::string {
+    return "Axis " + std::to_string(rng());
+  };
+  // FIXME: Re-enable labels once they're less broken in ROOT
+  /* auto gen_axis_label = [&rng]() -> std::string {
+    return std::to_string(rng());
+  }; */
+  auto gen_bool = [&rng]() -> bool {
+    return (rng() > rng.min() + RNG_CHOICE / 2);
+  };
+  auto gen_float = [&rng](Double_t min, Double_t max) -> Double_t {
+    return min + (rng() - rng.min()) * (max - min) / (rng.max() - rng.min());
+  };
 
-    // Decide if histogram should have a title
-    bool has_title = gen_bool();
+  // Decide if histogram should have a title
+  bool has_title = gen_bool();
 
-    // Generate an axis configuration
-    switch (rng() % 2 /* FIXME: 3 with labels */) {
-    // Equidistant axis (includes growable)
-    case 0: {
-      Double_t min = gen_float(AXIS_LIMIT_RANGE.first,
-                                AXIS_LIMIT_RANGE.second);
-      Double_t max = gen_float(min, AXIS_LIMIT_RANGE.second);
-      bool is_growable = false; /* FIXME: should call gen_bool(), but growable
-                                          axes are broken at the ROOT level */
+  // Generate an axis configuration
+  switch (rng() % 2 /* FIXME: 3 with labels */) {
+  // Equidistant axis (includes growable)
+  case 0: {
+    Double_t min = gen_float(AXIS_LIMIT_RANGE.first,
+                              AXIS_LIMIT_RANGE.second);
+    Double_t max = gen_float(min, AXIS_LIMIT_RANGE.second);
+    bool is_growable = false; /* FIXME: should call gen_bool(), but growable
+                                        axes are broken at the ROOT level */
 
-      // FIXME: Re-enable growable axes once ROOT fixes them.
-      /* if (is_growable) {
-        if (has_title) {
-          return RExp::RAxisConfig(gen_axis_title(),
-                                   RExp::RAxisConfig::Grow,
-                                   num_bins,
-                                   min,
-                                   max);
-        } else {
-          return RExp::RAxisConfig(RExp::RAxisConfig::Grow,
-                                   num_bins,
-                                   min,
-                                   max);
-        }
-      } else { */
-        if (has_title) {
-          return RExp::RAxisConfig(gen_axis_title(),
-                                   num_bins,
-                                   min,
-                                   max);
-        } else {
-          return RExp::RAxisConfig(num_bins,
-                                   min,
-                                   max);
-        }
-      /* } */
-    }
-
-    // Irregular axis
-    case 1: {
-      std::vector<Double_t> bin_borders;
-      for (Int_t i = 0; i < num_bins+1; ++i) {
-        bin_borders.push_back(
-          gen_float(AXIS_LIMIT_RANGE.first, AXIS_LIMIT_RANGE.second)
-        );
-      }
-      std::sort(bin_borders.begin(), bin_borders.end());
-
+    // FIXME: Re-enable growable axes once ROOT fixes them.
+    /* if (is_growable) {
       if (has_title) {
         return RExp::RAxisConfig(gen_axis_title(),
-                                 std::move(bin_borders));
+                                 RExp::RAxisConfig::Grow,
+                                 num_bins,
+                                 min,
+                                 max);
       } else {
-        return RExp::RAxisConfig(std::move(bin_borders));
+        return RExp::RAxisConfig(RExp::RAxisConfig::Grow,
+                                 num_bins,
+                                 min,
+                                 max);
       }
-    }
-
-    // Labeled axis (FIXME: Currently broken at the ROOT level)
-    /* case 2: {
-      std::vector<std::string> labels;
-      for (Int_t i = 0; i < num_bins; ++i) {
-        labels.push_back(gen_axis_label());
-      }
-
+    } else { */
       if (has_title) {
         return RExp::RAxisConfig(gen_axis_title(),
-                                 std::move(labels));
+                                 num_bins,
+                                 min,
+                                 max);
       } else {
-        return RExp::RAxisConfig(std::move(labels));
+        return RExp::RAxisConfig(num_bins,
+                                 min,
+                                 max);
       }
-    } */
+    /* } */
+  }
 
-    default:
-      throw std::runtime_error("There's a bug in this switch, please fix it.");
+  // Irregular axis
+  case 1: {
+    std::vector<Double_t> bin_borders;
+    for (Int_t i = 0; i < num_bins+1; ++i) {
+      bin_borders.push_back(
+        gen_float(AXIS_LIMIT_RANGE.first, AXIS_LIMIT_RANGE.second)
+      );
+    }
+    std::sort(bin_borders.begin(), bin_borders.end());
+
+    if (has_title) {
+      return RExp::RAxisConfig(gen_axis_title(),
+                               std::move(bin_borders));
+    } else {
+      return RExp::RAxisConfig(std::move(bin_borders));
+    }
+  }
+
+  // Labeled axis (FIXME: Currently broken at the ROOT level)
+  /* case 2: {
+    std::vector<std::string> labels;
+    for (Int_t i = 0; i < num_bins; ++i) {
+      labels.push_back(gen_axis_label());
+    }
+
+    if (has_title) {
+      return RExp::RAxisConfig(gen_axis_title(),
+                               std::move(labels));
+    } else {
+      return RExp::RAxisConfig(std::move(labels));
+    }
+  } */
+
+  default:
+    throw std::runtime_error("There's a bug in this switch, please fix it.");
   }
 }
 
