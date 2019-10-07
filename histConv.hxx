@@ -458,9 +458,9 @@ namespace detail
         if (src_impl.GetBinFrom(1) != get_bin_from_root6(dest, 1)) {
           std::ostringstream s;
           s << "Binning order doesn't match"
-            << " (source histogram's first bin is at ";
+            << " (source histogram's second bin is at ";
           print_bins(s, src_impl.GetBinFrom(1));
-          s << ", target histogram's first bin is at ";
+          s << ", target histogram's second bin is at ";
           print_bins(s, get_bin_from_root6(dest, 1));
           s << ')';
           throw std::runtime_error(s.str());
