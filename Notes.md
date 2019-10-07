@@ -156,10 +156,21 @@
       which call into RAxisBase::AdjustOverflowBinNumber, which... assumes
       existence of overflow bins!
     * In essence, RAxisGrow seems too broken to be taken into account during
-      testing at this point in time...
+      testing at this point in time... Disabling it for now.
+    * This also includes RAxisLabels, which is so badly broken that RHist will
+      not even build an histogram with this axis configuration.
 
 - More suspicious ROOT 7 behavior: RAxisIrregular::GetBinFrom and
   RAxisIrregular::GetBinCenter use `std::numeric_limits<double>::min()` as an
   a lower bound of bin boundaries.
     * Unless they don't support negative bin coordinates, that's likely a bug,
       and they likely meant `std::numeric_limits<double>::lowest()`
+
+- VERY suspicious ROOT 7 behavior: RHistImpl::GetBinFrom() and friends return
+  local coordinates in an order that's reversed w.r.t. the order in which axes
+  were specified during creation.
+    * This seems on purpose, given that the underlying RFillBinCoord impl has to
+      do extra work to get this weird "coordidx" and it seems consistent with
+      whatever RGetBinIndex which is used by Fill is doing.
+    * But I can't fathom who could possibly think that this confusing logic is
+      a good idea, and should have a chat with the ROOT team before moving on.

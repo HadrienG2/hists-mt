@@ -292,23 +292,32 @@ namespace detail
     }
 
     // ROOT 7-like GetBinFrom for ROOT 6
-    std::array<Double_t, 1> get_bin_from_root6(const TH1& hist, size_t bin) {
-        std::array<Int_t, 3> bin_xyz;
-        hist.GetBinXYZ(bin, bin_xyz[0], bin_xyz[1], bin_xyz[2]);
-        return {hist.GetXaxis()->GetBinLowEdge(bin_xyz[0])};
+    Double_t get_bin_from_root6(const TAxis& axis, Int_t bin) {
+      // FIXME: This matches the ROOT 7 behavior... but said behavior is wrong.
+      //        std::numeric_limits<double>::lowest() should be used.
+      if (axis.IsVariableBinSize() && (bin == 0)) {
+        return std::numeric_limits<double>::min();
+      } else {
+        return axis.GetBinLowEdge(bin);
+      }
     }
-    std::array<Double_t, 2> get_bin_from_root6(const TH2& hist, size_t bin) {
+    std::array<Double_t, 1> get_bin_from_root6(const TH1& hist, Int_t bin) {
         std::array<Int_t, 3> bin_xyz;
         hist.GetBinXYZ(bin, bin_xyz[0], bin_xyz[1], bin_xyz[2]);
-        return {hist.GetXaxis()->GetBinLowEdge(bin_xyz[0]),
-                hist.GetYaxis()->GetBinLowEdge(bin_xyz[1])};
+        return {get_bin_from_root6(*hist.GetXaxis(), bin_xyz[0])};
     }
-    std::array<Double_t, 3> get_bin_from_root6(const TH3& hist, size_t bin) {
+    std::array<Double_t, 2> get_bin_from_root6(const TH2& hist, Int_t bin) {
         std::array<Int_t, 3> bin_xyz;
         hist.GetBinXYZ(bin, bin_xyz[0], bin_xyz[1], bin_xyz[2]);
-        return {hist.GetXaxis()->GetBinLowEdge(bin_xyz[0]),
-                hist.GetYaxis()->GetBinLowEdge(bin_xyz[1]),
-                hist.GetZaxis()->GetBinLowEdge(bin_xyz[2])};
+        return {get_bin_from_root6(*hist.GetXaxis(), bin_xyz[0]),
+                get_bin_from_root6(*hist.GetYaxis(), bin_xyz[1])};
+    }
+    std::array<Double_t, 3> get_bin_from_root6(const TH3& hist, Int_t bin) {
+        std::array<Int_t, 3> bin_xyz;
+        hist.GetBinXYZ(bin, bin_xyz[0], bin_xyz[1], bin_xyz[2]);
+        return {get_bin_from_root6(*hist.GetXaxis(), bin_xyz[0]),
+                get_bin_from_root6(*hist.GetYaxis(), bin_xyz[1]),
+                get_bin_from_root6(*hist.GetZaxis(), bin_xyz[2])};
     }
 
     // Transfer histogram axis settings which exist in both equidistant and
@@ -437,6 +446,16 @@ namespace detail
     template <class THx, int DIMS>
     void check_binning(const THx& dest, const RHistImplBase<DIMS>& src_impl)
     {
+        auto bins_similar = [](auto src_bins, auto dest_bins) -> bool {
+          static constexpr double TOLERANCE = 1e-6;
+          if (src_bins.size() != dest_bins.size()) return false;
+          for (size_t i = 0; i < src_bins.size(); ++i) {
+            double diff = std::abs(src_bins[i] - dest_bins[i]);
+            if (diff >= TOLERANCE * std::abs(src_bins[i])) { return false; }
+          }
+          return true;
+        };
+
         auto print_bins = [](std::ostringstream& s, auto local_bin_indices) {
           s << "{ ";
           for (size_t i = 0; i < local_bin_indices.size()-1; ++i) {
@@ -445,7 +464,7 @@ namespace detail
           s << local_bin_indices[local_bin_indices.size()-1] << " }";
         };
 
-        if (src_impl.GetBinFrom(0) != get_bin_from_root6(dest, 0)) {
+        if (!bins_similar(src_impl.GetBinFrom(0), get_bin_from_root6(dest, 0))) {
           std::ostringstream s;
           s << "Binning origin doesn't match"
             << " (source histogram's first bin is at ";
@@ -455,7 +474,7 @@ namespace detail
           s << ')';
           throw std::runtime_error(s.str());
         }
-        if (src_impl.GetBinFrom(1) != get_bin_from_root6(dest, 1)) {
+        if (!bins_similar(src_impl.GetBinFrom(1), get_bin_from_root6(dest, 1))) {
           std::ostringstream s;
           s << "Binning order doesn't match"
             << " (source histogram's second bin is at ";
