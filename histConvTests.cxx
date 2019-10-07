@@ -10,7 +10,8 @@
 // Test tuning knobs
 using RNG = std::mt19937_64;
 constexpr std::pair<Int_t, Int_t> NUM_BINS_RANGE{1, 1000};
-constexpr std::pair<Double_t, Double_t> AXIS_LIMIT_RANGE{-12345.6, 1928.37};
+// FIXME: Allow negative limit once RAxisIrregular is fixed
+constexpr std::pair<Double_t, Double_t> AXIS_LIMIT_RANGE{0.0, 1928.37};
 constexpr size_t NUM_TEST_RUNS = 1000;
 
 // Typing this gets old quickly
@@ -108,7 +109,7 @@ RExp::RAxisConfig gen_axis_config(RNG& rng) {
     // Irregular axis
     case 1: {
       std::vector<Double_t> bin_borders;
-      for (Int_t i = 0; i < num_bins; ++i) {
+      for (Int_t i = 0; i < num_bins+1; ++i) {
         bin_borders.push_back(
           gen_float(AXIS_LIMIT_RANGE.first, AXIS_LIMIT_RANGE.second)
         );

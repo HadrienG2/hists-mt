@@ -155,5 +155,11 @@
     * RAxisGrow doesn't override the bin location methods of RAxisEquidistant,
       which call into RAxisBase::AdjustOverflowBinNumber, which... assumes
       existence of overflow bins!
-    * In essence, RAxisGrow is too broken to be taken into account during
+    * In essence, RAxisGrow seems too broken to be taken into account during
       testing at this point in time...
+
+- More suspicious ROOT 7 behavior: RAxisIrregular::GetBinFrom and
+  RAxisIrregular::GetBinCenter use `std::numeric_limits<double>::min()` as an
+  a lower bound of bin boundaries.
+    * Unless they don't support negative bin coordinates, that's likely a bug,
+      and they likely meant `std::numeric_limits<double>::lowest()`
