@@ -266,14 +266,18 @@ namespace detail
     TAxis& get_root6_axis(TH1& hist, size_t idx) {
         switch (idx) {
             case 0: return *hist.GetXaxis();
-            default: throw std::runtime_error("Invalid axis index");
+            default:
+              throw std::runtime_error(std::to_string(idx)
+                                       + " isn't a valid axis index for TH1");
         }
     }
     TAxis& get_root6_axis(TH2& hist, size_t idx) {
         switch (idx) {
             case 0: return *hist.GetXaxis();
             case 1: return *hist.GetYaxis();
-            default: throw std::runtime_error("Invalid axis index");
+            default:
+              throw std::runtime_error(std::to_string(idx)
+                                       + " isn't a valid axis index for TH2");
         }
     }
     TAxis& get_root6_axis(TH3& hist, size_t idx) {
@@ -281,7 +285,9 @@ namespace detail
             case 0: return *hist.GetXaxis();
             case 1: return *hist.GetYaxis();
             case 2: return *hist.GetZaxis();
-            default: throw std::runtime_error("Invalid axis index");
+            default:
+              throw std::runtime_error(std::to_string(idx)
+                                       + " isn't a valid axis index for TH3");
         }
     }
 
@@ -431,14 +437,40 @@ namespace detail
     template <class THx, int DIMS>
     void check_binning(const THx& dest, const RHistImplBase<DIMS>& src_impl)
     {
+        auto print_bins = [](std::ostringstream& s, auto local_bin_indices) {
+          s << "{ ";
+          for (size_t i = 0; i < local_bin_indices.size()-1; ++i) {
+            s << local_bin_indices[i] << ", ";
+          }
+          s << local_bin_indices[local_bin_indices.size()-1] << " }";
+        };
+
         if (src_impl.GetBinFrom(0) != get_bin_from_root6(dest, 0)) {
-            throw std::runtime_error("Binning origin doesn't match");
+          std::ostringstream s;
+          s << "Binning origin doesn't match"
+            << " (source histogram's first bin is at ";
+          print_bins(s, src_impl.GetBinFrom(0));
+          s << ", target histogram's first bin is at ";
+          print_bins(s, get_bin_from_root6(dest, 0));
+          s << ')';
+          throw std::runtime_error(s.str());
         }
         if (src_impl.GetBinFrom(1) != get_bin_from_root6(dest, 1)) {
-            throw std::runtime_error("Bin order doesn't match");
+          std::ostringstream s;
+          s << "Binning order doesn't match"
+            << " (source histogram's first bin is at ";
+          print_bins(s, src_impl.GetBinFrom(1));
+          s << ", target histogram's first bin is at ";
+          print_bins(s, get_bin_from_root6(dest, 1));
+          s << ')';
+          throw std::runtime_error(s.str());
         }
         if (src_impl.GetNBins() != dest.GetNcells()) {
-            throw std::runtime_error("Bin count doesn't match");
+          std::ostringstream s;
+          s << "Bin count doesn't match"
+            << " (source histogram has " << src_impl.GetNBins() << " bins"
+            << ", target histogram has " << dest.GetNcells() << " bins)";
+          throw std::runtime_error(s.str());
         }
     }
 
@@ -451,7 +483,7 @@ namespace detail
         // Make sure that the input histogram's impl-pointer is set
         const auto* impl_ptr = src.GetImpl();
         if (impl_ptr == nullptr) {
-            throw std::runtime_error("Histogram has a null impl pointer");
+            throw std::runtime_error("Input histogram has a null impl pointer");
         }
         const auto& impl = *impl_ptr;
 
