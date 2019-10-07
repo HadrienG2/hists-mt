@@ -6,10 +6,13 @@
 #include "TH2.h"
 #include "TH3.h"
 
+#include <cxxabi.h>
 #include <exception>
+#include <sstream>
 #include <string>
 #include <tuple>
 #include <type_traits>
+#include <typeinfo>
 #include <utility>
 
 
@@ -208,7 +211,18 @@ namespace detail
         // Generally speaking, we fail at runtime...
         template <typename Output, typename... BuildParams>
         static Output make(std::tuple<BuildParams...>&& th3_params) {
-            throw std::runtime_error("Unsupported TH3 axis configuration");
+            std::ostringstream s;
+            char * args_type_name;
+            int status;
+            args_type_name = abi::__cxa_demangle(typeid(th3_params).name(),
+                                                 0,
+                                                 0,
+                                                 &status);
+            s << "Unsupported TH3 axis configuration"
+              << " (no constructor from arguments " << args_type_name
+              << ')';
+            free(args_type_name);
+            throw std::runtime_error(s.str());
         }
 
         // ...except in the two cases where it actually works!
