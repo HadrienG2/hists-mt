@@ -11,8 +11,7 @@
 // Test tuning knobs
 using RNG = std::mt19937_64;
 constexpr std::pair<Int_t, Int_t> NUM_BINS_RANGE{1, 1000};
-// FIXME: Allow negative limit once RAxisIrregular is fixed
-constexpr std::pair<Double_t, Double_t> AXIS_LIMIT_RANGE{0.0, 1928.37};
+constexpr std::pair<Double_t, Double_t> AXIS_LIMIT_RANGE{-10264.5, 1928.37};
 constexpr size_t NUM_TEST_RUNS = 1000;
 
 // Typing this gets old quickly
