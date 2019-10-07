@@ -74,9 +74,11 @@ RExp::RAxisConfig gen_axis_config(RNG& rng) {
       Double_t min = gen_float(AXIS_LIMIT_RANGE.first,
                                 AXIS_LIMIT_RANGE.second);
       Double_t max = gen_float(min, AXIS_LIMIT_RANGE.second);
-      bool is_growable = gen_bool();
+      bool is_growable = false; /* FIXME: should call gen_bool(), but growable
+                                          axes are broken at the ROOT level */
 
-      if (is_growable) {
+      // FIXME: Re-enable growable axes once ROOT fixes them.
+      /* if (is_growable) {
         if (has_title) {
           return RExp::RAxisConfig(gen_axis_title(),
                                    RExp::RAxisConfig::Grow,
@@ -89,7 +91,7 @@ RExp::RAxisConfig gen_axis_config(RNG& rng) {
                                    min,
                                    max);
         }
-      } else {
+      } else { */
         if (has_title) {
           return RExp::RAxisConfig(gen_axis_title(),
                                    num_bins,
@@ -100,7 +102,7 @@ RExp::RAxisConfig gen_axis_config(RNG& rng) {
                                    min,
                                    max);
         }
-      }
+      /* } */
     }
 
     // Irregular axis

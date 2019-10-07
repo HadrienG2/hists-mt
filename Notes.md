@@ -143,3 +143,17 @@
 
 - Once that is done, can look into having the functionality integrated in ROOT,
   and other MarlinMT histogramming matters like Processor setup & IO.
+
+- New suspicious ROOT 7 behavior: RAxisEquidistant, RAxisGrow, and
+  over/underflow bins.
+    * In ROOT 6, every histogram type has over- and underflow bins.
+    * Separately, axes may or may not be allowed to grow.
+    * In ROOT 7, growability and number of bins is linked. If you can grow, you
+      don't have overflow bins. If you can't grow, you have overflow bins.
+    * Growing is supposed to be handled by RAxisGrow::Grow() which... doesn't
+      seem to be implemented?!
+    * RAxisGrow doesn't override the bin location methods of RAxisEquidistant,
+      which call into RAxisBase::AdjustOverflowBinNumber, which... assumes
+      existence of overflow bins!
+    * In essence, RAxisGrow is too broken to be taken into account during
+      testing at this point in time...
