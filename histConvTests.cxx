@@ -170,7 +170,7 @@ void test_conversion(std::array<RExp::RAxisConfig, DIMS>&& axis_configs) {
     // Print exception text
     std::cout << "Histogram conversion error: " << e.what() << std::endl;
 
-    // Use GCC ABI to print histogram title
+    // Use GCC ABI to print histogram type
     char * hist_type_name;
     int status;
     hist_type_name = abi::__cxa_demangle(typeid(source).name(), 0, 0, &status);
@@ -181,17 +181,23 @@ void test_conversion(std::array<RExp::RAxisConfig, DIMS>&& axis_configs) {
     std::cout << "* Axis configuration was..." << std::endl;
     char axis = 'X';
     for (const auto& axis_config : axis_configs) {
+      // Axis name (X, Y, Z)
       std::cout << "  - " << axis++ << ": ";
 
+      // Recipe for printing number of bins
       auto print_header = [&axis_config]() {
         std::cout << " (" << axis_config.GetNBins() << " bins inc. overflow";
       };
+
+      // Common subset of equidistant/growable axes display
       auto print_equidistant = [&axis_config, &print_header]() {
         print_header();
         std::cout << " from " << axis_config.GetBinBorders()[0]
                   << " to " << axis_config.GetBinBorders()[1]
                   << ')';
       };
+
+      // Recipe for partial printout of std::vector-like data
       auto print_vector = [](const auto& vector, auto&& elem_printer) {
         std::cout << " { ";
         for (size_t i = 0; i < std::min(3ul, vector.size()-1); ++i) {
@@ -209,6 +215,7 @@ void test_conversion(std::array<RExp::RAxisConfig, DIMS>&& axis_configs) {
         std::cout << " })";
       };
 
+      // And now we get into the specifics of individual axis types.
       switch (axis_config.GetKind()) {
       case RExp::RAxisConfig::kEquidistant: {
         std::cout << "Equidistant";
