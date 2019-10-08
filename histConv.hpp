@@ -248,11 +248,6 @@ namespace detail
   // === OTHER DIMENSION-GENERIC RHIST -> THx CONVERSION BUILDING BLOCKS ===
 
   // Convert a ROOT 7 histogram title into a ROOT 6 histogram title
-  //
-  // To prevent ROOT 6 from misinterpreting free-form histogram titles
-  // from ROOT 7 as a mixture of a histogram title and axis titles, all
-  // semicolons must be escaped with a preceding # character.
-  //
   std::string convert_hist_title(const std::string& title);
 
   // Map from ROOT 7 axis index to ROOT 6 histogram axes
@@ -413,6 +408,7 @@ namespace detail
       s << ')';
       throw std::runtime_error(s.str());
     }
+    // FIXME: This doesn't work if the input histogram only has one bin
     if (!bins_similar(src_impl.GetBinFrom(1), get_bin_from_root6(dest, 1))) {
       std::ostringstream s;
       s << "Binning order doesn't match"

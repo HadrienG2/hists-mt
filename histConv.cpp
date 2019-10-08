@@ -4,6 +4,9 @@
 namespace detail
 {
   std::string convert_hist_title(const std::string& title) {
+    // To prevent ROOT 6 from misinterpreting free-form histogram titles
+    // from ROOT 7 as a mixture of a histogram title and axis titles, all
+    // semicolons must be escaped with a preceding # character.
     std::string hist_title = title;
     size_t pos = 0;
     while(true) {
