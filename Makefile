@@ -1,8 +1,9 @@
 # Technically incorrect, but needed for LTO
 CC:=g++
 CXX:=g++
-CXXFLAGS:=-O3 -march=native -std=c++17 -flto
-LDFLAGS:=-flto
+LTOFLAGS:=-flto
+CXXFLAGS:=-O3 -march=native -std=c++17 $(LTOFLAGS)
+LDFLAGS:=$(LTOFLAGS)
 LDLIBS:=-pthread -lCore -lHist
 
 TARGETS:=fillBench histConvTests
@@ -18,7 +19,8 @@ clean:
 test: histConvTests
 	./histConvTests
 
-fillBench.exe: fillBench.o
-histConvTests.exe: histConvTests.o
+fillBench: fillBench.o
+histConvTests: histConvTests.o histConv.o
 
-fillBench.o: histConv.hpp
+histConv.o: histConv.hpp
+histConvTests.o: histConv.hpp
