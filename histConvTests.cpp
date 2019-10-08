@@ -6,8 +6,6 @@
 int main() {
   // For the most part, we'll use reproducible but pseudo-random test data...
   RNG rng;
-
-  // Anyway, let's start the test
   for (size_t i = 0; i < NUM_TEST_RUNS; ++i) {
     // Conversion from ROOT7's default histogram configuration works
     test_conversion<1, char>({gen_axis_config(rng)});
@@ -49,6 +47,5 @@ int main() {
                                  gen_axis_config(rng),
                                  gen_axis_config(rng)}); */
   }
-
   return 0;
 }
