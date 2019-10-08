@@ -24,9 +24,12 @@ test: histConvTests
 
 
 fillBench: fillBench.o
-histConvTests: histConvTests.o histConv.o
+histConvTests: histConvTests.o histConv.o histConvTests_exotic_stats.o \
+			   histConvTests_utilities.o
 
 histConv.o: histConv.hpp
-histConvTests.o: histConv.hpp histConvTests.hpp
+histConvTests.o: histConv.hpp.dcl histConvTests.hpp
+histConvTests_exotic_stats.o: histConv.hpp histConvTests.hpp
+histConvTests_utilities.o: histConvTests.hpp
 
 histConv.hpp: histConv.hpp.dcl
