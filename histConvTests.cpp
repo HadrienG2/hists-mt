@@ -5,7 +5,7 @@
 #include <random>
 #include <typeinfo>
 
-#include "histConv.hxx"
+#include "histConv.hpp"
 
 
 // Test tuning knobs
