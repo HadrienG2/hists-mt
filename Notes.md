@@ -180,4 +180,4 @@
     * Indirect consequence: It might be possible to make the build faster in
       the long run. But I have the impression that the bulk of the overhead is
       in ROOT's RHist right now, as I cannot explain why the overhead jumps up
-      while instantiating 2D and 3D hists otherwise. To be confirmed!
+      so much while instantiating 2D and 3D hists otherwise. To be confirmed!
