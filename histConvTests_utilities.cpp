@@ -1,5 +1,5 @@
 // ROOT7 -> ROOT6 histogram conversion test utilities
-// Extracted out of the tests .cpp to clean them up + avoid recompilations
+// Extracted from histConvTests.cpp to clean that file up and speed up builds
 
 #include "ROOT/RAxis.hxx"
 

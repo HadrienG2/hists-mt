@@ -1,7 +1,7 @@
 // ROOT7 -> ROOT6 histogram converter (minimal declaration)
 //
 // You can use this simplified header to speed up your builds if you only call
-// into_root_6_hist on RHist<DIMS, T> histograms without extra stats.
+// into_root_6_hist on RHist<DIMS, T> histograms without custom statistics.
 
 #pragma once
 
@@ -103,7 +103,7 @@ namespace detail
                   "statistics may be converted into ROOT 6 histograms");
   };
 
-  // ...and finally we can clean up
+  // ...and then we can add a nicer user interface on top of that check
   template <template <int D_, class P_> class... STAT>
   static constexpr bool CheckStats_v = CheckStats<STAT...>::value;
 
@@ -119,7 +119,7 @@ namespace detail
   struct CheckRoot6Type : public std::false_type
   {
     // Tell the user we don't know of an equivalent to this histogram type
-    static_assert(always_false<RExp::RHist<DIMENSIONS, PRECISION>>,
+    static_assert(always_false<PRECISION>,
                   "No known ROOT 6 histogram type matches the input "
                   "histogram's dimensionality and precision");
   };
@@ -188,11 +188,12 @@ namespace detail
     using type = TH3D;
   };
 
-  // ...and finally we'll add a little bit of sugar on top
+  // ...and then we can add a nice user interface to get the ROOT6 hist type...
   template <int DIMENSIONS, class PRECISION>
   using CheckRoot6Type_t =
     typename CheckRoot6Type<DIMENSIONS, PRECISION>::type;
-  //
+
+  // ...and the truth that a suitable ROOT6 hist type exists.
   template <int DIMENSIONS, class PRECISION>
   static constexpr bool CheckRoot6Type_v =
     CheckRoot6Type<DIMENSIONS, PRECISION>::value;

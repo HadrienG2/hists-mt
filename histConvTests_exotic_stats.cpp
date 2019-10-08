@@ -1,4 +1,5 @@
 // ROOT7 -> ROOT6 histogram conversion tests for custom stats configuration
+// Extracted from histConvTests.cpp to test both histConv.hpp & histConv.hpp.dcl
 
 #include "ROOT/RHistData.hxx"
 

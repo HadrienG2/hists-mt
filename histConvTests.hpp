@@ -48,7 +48,7 @@ void test_conversion_exotic_stats(RNG& rng);
 
 // === TEST RUNNER ===
 
-// Run tests for a specific ROOT 7 histogram type
+// Run tests for a certain ROOT 7 histogram type and axis configuration
 template <int DIMS,
           class PRECISION,
           template <int D_, class P_> class... STAT>

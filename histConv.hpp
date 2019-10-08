@@ -1,8 +1,8 @@
 // ROOT7 -> ROOT6 histogram converter (full header)
 //
-// You must use this header if you need to instantiate into_root_6_hist
-// for a ROOT7 histogram with a custom statistics configuration (i.e. 
-// RHist<DIMS, T, STATS...> with non-empty STATS...).
+// You only need to use this header if you want to instantiate into_root_6_hist
+// for a ROOT7 histogram with a custom statistics configuration (that is, a
+// RHist<DIMS, T, STAT...> histogram with a non-empty STAT... list).
 //
 // See histConv.hpp.dcl for the basic declarations, which may be all you need.
 
