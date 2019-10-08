@@ -1,1 +1,4 @@
+fillBench
+histConvTests
+*.o
 a.out

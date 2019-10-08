@@ -18,24 +18,43 @@ constexpr size_t NUM_TEST_RUNS = 1000;
 namespace RExp = ROOT::Experimental;
 
 
-// Make sure that the converter can be instantiated for all supported histogram types
-template auto into_root6_hist(const RExp::RHist<1, Char_t>& src, const char* name);
-template auto into_root6_hist(const RExp::RHist<1, Short_t>& src, const char* name);
-template auto into_root6_hist(const RExp::RHist<1, Int_t>& src, const char* name);
-template auto into_root6_hist(const RExp::RHist<1, Float_t>& src, const char* name);
-template auto into_root6_hist(const RExp::RHist<1, Double_t>& src, const char* name);
+// Make sure that instantiations are available for all basic histogram types
 //
-template auto into_root6_hist(const RExp::RHist<2, Char_t>& src, const char* name);
-template auto into_root6_hist(const RExp::RHist<2, Short_t>& src, const char* name);
-template auto into_root6_hist(const RExp::RHist<2, Int_t>& src, const char* name);
-template auto into_root6_hist(const RExp::RHist<2, Float_t>& src, const char* name);
-template auto into_root6_hist(const RExp::RHist<2, Double_t>& src, const char* name);
+// TODO: Turn those into non-extern template instantiations if we decide to drop
+//       some explicit instantiations from the histConv backend.
 //
-template auto into_root6_hist(const RExp::RHist<3, Char_t>& src, const char* name);
-template auto into_root6_hist(const RExp::RHist<3, Short_t>& src, const char* name);
-template auto into_root6_hist(const RExp::RHist<3, Int_t>& src, const char* name);
-template auto into_root6_hist(const RExp::RHist<3, Float_t>& src, const char* name);
-template auto into_root6_hist(const RExp::RHist<3, Double_t>& src, const char* name);
+extern template auto into_root6_hist(const RExp::RHist<1, Char_t>& src,
+                                     const char* name);
+extern template auto into_root6_hist(const RExp::RHist<1, Short_t>& src,
+                                     const char* name);
+extern template auto into_root6_hist(const RExp::RHist<1, Int_t>& src,
+                                     const char* name);
+extern template auto into_root6_hist(const RExp::RHist<1, Float_t>& src,
+                                     const char* name);
+extern template auto into_root6_hist(const RExp::RHist<1, Double_t>& src,
+                                     const char* name);
+//
+extern template auto into_root6_hist(const RExp::RHist<2, Char_t>& src,
+                                     const char* name);
+extern template auto into_root6_hist(const RExp::RHist<2, Short_t>& src,
+                                     const char* name);
+extern template auto into_root6_hist(const RExp::RHist<2, Int_t>& src,
+                                     const char* name);
+extern template auto into_root6_hist(const RExp::RHist<2, Float_t>& src,
+                                     const char* name);
+extern template auto into_root6_hist(const RExp::RHist<2, Double_t>& src,
+                                     const char* name);
+//
+extern template auto into_root6_hist(const RExp::RHist<3, Char_t>& src,
+                                     const char* name);
+extern template auto into_root6_hist(const RExp::RHist<3, Short_t>& src,
+                                     const char* name);
+extern template auto into_root6_hist(const RExp::RHist<3, Int_t>& src,
+                                     const char* name);
+extern template auto into_root6_hist(const RExp::RHist<3, Float_t>& src,
+                                     const char* name);
+extern template auto into_root6_hist(const RExp::RHist<3, Double_t>& src,
+                                     const char* name);
 
 
 // Generate a random ROOT 7 axis configuration
