@@ -295,29 +295,27 @@ void print_axis_config(const RExp::RAxisConfig& axis_config) {
   };
 
   // And now we get into the specifics of individual axis types.
-  switch (axis_config.GetKind()) {
-  case RExp::RAxisConfig::kEquidistant: {
+  switch (axis_config.GetKind())
+  {
+  case RExp::RAxisConfig::kEquidistant:
     std::cout << "Equidistant";
     print_equidistant();
     break;
-  }
 
-  case RExp::RAxisConfig::kGrow: {
+  case RExp::RAxisConfig::kGrow:
     std::cout << "Growable";
     print_equidistant();
     break;
-  }
 
-  case RExp::RAxisConfig::kIrregular: {
+  case RExp::RAxisConfig::kIrregular:
     std::cout << "Irregular";
     print_header();
     std::cout << " with borders";
     print_vector(axis_config.GetBinBorders(),
                  []( Double_t border ) { std::cout << border; });
     break;
-  }
 
-  case RExp::RAxisConfig::kLabels: {
+  case RExp::RAxisConfig::kLabels:
     std::cout << "Labeled";
     print_header();
     std::cout << " with labels";
@@ -326,7 +324,6 @@ void print_axis_config(const RExp::RAxisConfig& axis_config) {
                    std::cout << '"' << label << '"';
                  });
     break;
-  }
 
   default:
     throw std::runtime_error("Unsupported axis kind, please fix it.");
