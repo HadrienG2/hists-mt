@@ -2,23 +2,13 @@
 #include <cstdlib>
 #include <cxxabi.h>
 #include <iostream>
-#include <random>
 #include <typeinfo>
 
 #include "histConv.hpp"
+#include "histConvTests.hpp"
 
 
-// Test tuning knobs
-using RNG = std::mt19937_64;
-constexpr std::pair<Int_t, Int_t> NUM_BINS_RANGE{1, 1000};
-constexpr std::pair<Double_t, Double_t> AXIS_LIMIT_RANGE{-10264.5, 1928.37};
-constexpr size_t NUM_TEST_RUNS = 1000;
-
-// Typing this gets old quickly
-namespace RExp = ROOT::Experimental;
-
-
-// Make sure that instantiations are available for all basic histogram types
+// Assert that instantiations are available for all basic histogram types
 //
 // TODO: Turn those into non-extern template instantiations if we decide to drop
 //       some explicit instantiations from the histConv backend.
@@ -57,62 +47,6 @@ extern template auto into_root6_hist(const RExp::RHist<3, Double_t>& src,
                                      const char* name);
 
 
-// Generate a random ROOT 7 axis configuration
-RExp::RAxisConfig gen_axis_config(RNG& rng);
-
-// Print out axis configurations from a histogram
-// (split from test_conversion to reduce template code bloat)
-void print_axis_config(const RExp::RAxisConfig& axis_config);
-
-// Test runner for a specific ROOT 7 histogram type
-template <int DIMS,
-          class PRECISION,
-          template <int D_, class P_> class... STAT>
-void test_conversion(std::array<RExp::RAxisConfig, DIMS>&& axis_configs) {
-  // ROOT 6 is picky about unique names
-  static size_t ctr = 0;
-  std::string name = "Hist" + std::to_string(ctr);
-  ctr += 1;
-
-  // Generate a ROOT 7 histogram
-  RExp::RHist<DIMS, PRECISION, STAT...> source(axis_configs);
-  // TODO: Fill it with some test data
-
-  // Convert it to ROOT 6 format and check the output
-  try
-  {
-    auto dest = into_root6_hist(std::move(source), name.c_str());
-    // TODO: Check histogram configuration
-    // TODO: Check output data and statistics
-  }
-  catch (const std::runtime_error& e)
-  {
-    // Print exception text
-    std::cout << "Histogram conversion error: " << e.what() << std::endl;
-
-    // Use GCC ABI to print histogram type
-    char * hist_type_name;
-    int status;
-    hist_type_name = abi::__cxa_demangle(typeid(source).name(), 0, 0, &status);
-    std::cout << "* Histogram type was " << hist_type_name << std::endl;
-    free(hist_type_name);
-
-    // Print input axis configuration
-    std::cout << "* Axis configuration was..." << std::endl;
-    char axis_name = 'X';
-    for (const auto& axis_config : axis_configs) {
-      std::cout << "  - " << axis_name++ << ": ";
-      print_axis_config(axis_config);
-      std::cout << std::endl;
-    }
-
-    // TODO: Decide if aborting semantics are wanted
-    std::cout << std::endl;
-    std::abort();
-  }
-}
-
-// General test suite
 int main() {
   // For the most part, we'll use reproducible but pseudo-random test data...
   RNG rng;
@@ -172,6 +106,54 @@ int main() {
   }
 
   return 0;
+}
+
+
+template <int DIMS,
+          class PRECISION,
+          template <int D_, class P_> class... STAT>
+void test_conversion(std::array<RExp::RAxisConfig, DIMS>&& axis_configs) {
+  // ROOT 6 is picky about unique names
+  static size_t ctr = 0;
+  std::string name = "Hist" + std::to_string(ctr);
+  ctr += 1;
+
+  // Generate a ROOT 7 histogram
+  RExp::RHist<DIMS, PRECISION, STAT...> source(axis_configs);
+  // TODO: Fill it with some test data
+
+  // Convert it to ROOT 6 format and check the output
+  try
+  {
+    auto dest = into_root6_hist(std::move(source), name.c_str());
+    // TODO: Check histogram configuration
+    // TODO: Check output data and statistics
+  }
+  catch (const std::runtime_error& e)
+  {
+    // Print exception text
+    std::cout << "Histogram conversion error: " << e.what() << std::endl;
+
+    // Use GCC ABI to print histogram type
+    char * hist_type_name;
+    int status;
+    hist_type_name = abi::__cxa_demangle(typeid(source).name(), 0, 0, &status);
+    std::cout << "* Histogram type was " << hist_type_name << std::endl;
+    free(hist_type_name);
+
+    // Print input axis configuration
+    std::cout << "* Axis configuration was..." << std::endl;
+    char axis_name = 'X';
+    for (const auto& axis_config : axis_configs) {
+      std::cout << "  - " << axis_name++ << ": ";
+      print_axis_config(axis_config);
+      std::cout << std::endl;
+    }
+
+    // TODO: Decide if aborting semantics are wanted
+    std::cout << std::endl;
+    std::abort();
+  }
 }
 
 
@@ -278,6 +260,7 @@ RExp::RAxisConfig gen_axis_config(RNG& rng) {
     throw std::runtime_error("There's a bug in this switch, please fix it.");
   }
 }
+
 
 void print_axis_config(const RExp::RAxisConfig& axis_config) {
   // Common subset of all axis configuration displays

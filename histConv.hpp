@@ -1,3 +1,5 @@
+#pragma once
+
 #include "ROOT/RAxis.hxx"
 #include "ROOT/RHist.hxx"
 #include "ROOT/RHistImpl.hxx"
