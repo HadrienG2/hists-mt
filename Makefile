@@ -1,4 +1,4 @@
-# Technically incorrect, but needed for LTO
+# CC=g++ is technically incorrect, but needed for LTO
 CC:=g++
 CXX:=g++
 LTOFLAGS:=-flto
@@ -9,15 +9,19 @@ LDLIBS:=-pthread -lCore -lHist
 TARGETS:=fillBench histConvTests
 
 
-.PHONY: all clean test
+.PHONY: all bench clean test
 
 all: $(TARGETS)
+
+bench: fillBench
+	./fillBench
 
 clean:
 	rm -f $(TARGETS) *.o
 
 test: histConvTests
 	./histConvTests
+
 
 fillBench: fillBench.o
 histConvTests: histConvTests.o histConv.o
