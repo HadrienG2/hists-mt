@@ -174,3 +174,10 @@
       whatever RGetBinIndex which is used by Fill is doing.
     * But I can't fathom who could possibly think that this confusing logic is
       a good idea, and should have a chat with the ROOT team before moving on.
+
+- I have added a primitive build system and some separate compilation
+    * Direct consequence: you can now run the tests with just `make tests -j8`
+    * Indirect consequence: It might be possible to make the build faster in
+      the long run. But I have the impression that the bulk of the overhead is
+      in ROOT's RHist right now, as I cannot explain why the overhead jumps up
+      while instantiating 2D and 3D hists otherwise. To be confirmed!
