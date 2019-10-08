@@ -181,3 +181,5 @@
       the long run. But I have the impression that the bulk of the overhead is
       in ROOT's RHist right now, as I cannot explain why the overhead jumps up
       so much while instantiating 2D and 3D hists otherwise. To be confirmed!
+    * Meh. After some extra testing, it seems that GCC will just ignore my
+      extern template statements. Need to understand why...
