@@ -28,3 +28,5 @@ histConvTests: histConvTests.o histConv.o
 
 histConv.o: histConv.hpp
 histConvTests.o: histConv.hpp histConvTests.hpp
+
+histConv.hpp: histConv.hpp.dcl

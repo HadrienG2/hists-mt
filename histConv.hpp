@@ -1,192 +1,29 @@
-#pragma once
+// ROOT7 -> ROOT6 histogram converter (full header)
+//
+// You must use this header if you need to instantiate into_root_6_hist
+// for a ROOT7 histogram with a custom statistics configuration (i.e. 
+// RHist<DIMS, T, STATS...> with non-empty STATS...).
+//
+// See histConv.hpp.dcl for the basic declarations, which may be all you need.
+
+#include "histConv.hpp.dcl"
 
 #include "ROOT/RAxis.hxx"
 #include "ROOT/RHist.hxx"
 #include "ROOT/RHistImpl.hxx"
 #include "TAxis.h"
-#include "TH1.h"
-#include "TH2.h"
-#include "TH3.h"
 
 #include <cxxabi.h>
 #include <exception>
 #include <sstream>
 #include <string>
 #include <tuple>
-#include <type_traits>
 #include <typeinfo>
 #include <utility>
 
 
-// Evil machinery turning ROOT 7 histograms into ROOT 6 histograms
 namespace detail
 {
-  // Typing this gets old quickly
-  namespace RExp = ROOT::Experimental;
-
-  // === TOP-LEVEL ENTRY POINT FOR INTO_ROOT6_HIST ===
-
-  // Trick for static_asserts that only fail when a template is instantiated
-  //
-  // When you write a struct template that must always be specialized, you may
-  // want to print a compiler error when the non-specialized struct is
-  // instantiated, by adding a failing static_assert to it.
-  //
-  // However, you must then prevent the compiler from firing the static_assert
-  // even when the non-specialized version of the template struct is never
-  // instantiated, by making its evaluation "depend on" the template
-  // parameters of the struct. This variable template seems to do the job.
-  //
-  template <typename T> constexpr bool always_false = false;
-
-  // ROOT 7 -> ROOT 6 histogram converter
-  //
-  // Must be specialized for every supported ROOT 7 histogram type. Falling
-  // back on the base case means that a histogram conversion is not supported,
-  // and will be reported as such.
-  //
-  // Every specialization will provide a "convert()" static function that
-  // performs the conversion. That function takes the following parameters:
-  //
-  // - The ROOT 7 histogram that must be converted into a ROOT 6 one.
-  // - A name, playing the same role as ROOT 6's "name" constructor parameter.
-  //
-  template <typename Input, typename Enable = void>
-  struct HistConverter
-  {
-    // Tell the user that we haven't implemented this conversion (yet?)
-    static_assert(always_false<Input>, "Unsupported histogram conversion");
-
-    // Dummy conversion function to keep compiler errors bounded
-    static auto convert(const Input& src, const char* name);
-  };
-
-
-  // === CHECK THAT REQUIRED RHIST STATS ARE PRESENT ===
-
-  // For a ROOT 7 histogram to be convertible to the ROOT 6 format, it must
-  // collect the RHistStatContent statistic. Let's check for this.
-  template <template <int D_, class P_> class... STAT>
-  constexpr bool stats_ok;
-
-  // If the user declares an RHist with an empty stats list, ROOT silently
-  // adds RHistStatContent. So we must special-case this empty list.
-  template <>
-  constexpr bool stats_ok<> = true;
-
-  // If there is only one stat in the list, then the assertion will succeed or
-  // fail depending on if this stat is RHistStatContent.
-  template <template <int D_, class P_> class SINGLE_STAT>
-  constexpr bool stats_ok<SINGLE_STAT> = false;
-  template <>
-  constexpr bool stats_ok<RExp::RHistStatContent> = true;
-
-  // If there are 2+ stats in the list, then we iterate through recursion.
-  // This case won't catch the 1-stat scenario due to above specializations.
-  template <template <int D_, class P_> class STAT_HEAD,
-            template <int D_, class P_> class... STAT_TAIL>
-  constexpr bool stats_ok<STAT_HEAD, STAT_TAIL...> =
-    stats_ok<STAT_HEAD> || stats_ok<STAT_TAIL...>;
-
-  // We'll also want a nice compiler error message in the failing case
-  template <template <int D_, class P_> class... STAT>
-  struct CheckStats : public std::bool_constant<stats_ok<STAT...>> {
-    static_assert(stats_ok<STAT...>,
-                  "Only ROOT 7 histograms that record RHistStatContent "
-                  "statistics may be converted into ROOT 6 histograms");
-  };
-
-  // ...and finally we can clean up
-  template <template <int D_, class P_> class... STAT>
-  static constexpr bool CheckStats_v = CheckStats<STAT...>::value;
-
-
-  // === LOOK UP THE ROOT 6 EQUIVALENT OF OUR RHIST (IF ANY) ===
-
-  // We also need a machinery that, given a ROOT 7 histogram type, can give us
-  // the corresponding ROOT 6 histogram type, if any.
-  //
-  // This must be done via specialization, so let's define the failing case...
-  //
-  template <int DIMENSIONS, class PRECISION>
-  struct CheckRoot6Type : public std::false_type
-  {
-    // Tell the user we don't know of an equivalent to this histogram type
-    static_assert(always_false<RExp::RHist<DIMENSIONS, PRECISION>>,
-                  "No known ROOT 6 histogram type matches the input "
-                  "histogram's dimensionality and precision");
-  };
-
-  // ...then we can define the successful cases...
-  template <>
-  struct CheckRoot6Type<1, Char_t> : public std::true_type {
-    using Result = TH1C;
-  };
-  template <>
-  struct CheckRoot6Type<1, Short_t> : public std::true_type {
-    using Result = TH1S;
-  };
-  template <>
-  struct CheckRoot6Type<1, Int_t> : public std::true_type {
-    using Result = TH1I;
-  };
-  template <>
-  struct CheckRoot6Type<1, Float_t> : public std::true_type {
-    using Result = TH1F;
-  };
-  template <>
-  struct CheckRoot6Type<1, Double_t> : public std::true_type {
-    using Result = TH1D;
-  };
-
-  template <>
-  struct CheckRoot6Type<2, Char_t> : public std::true_type {
-    using Result = TH2C;
-  };
-  template <>
-  struct CheckRoot6Type<2, Short_t> : public std::true_type {
-    using Result = TH2S;
-  };
-  template <>
-  struct CheckRoot6Type<2, Int_t> : public std::true_type {
-    using Result = TH2I;
-  };
-  template <>
-  struct CheckRoot6Type<2, Float_t> : public std::true_type {
-    using Result = TH2F;
-  };
-  template <>
-  struct CheckRoot6Type<2, Double_t> : public std::true_type {
-    using Result = TH2D;
-  };
-
-  template <>
-  struct CheckRoot6Type<3, Char_t> : public std::true_type {
-    using Result = TH3C;
-  };
-  template <>
-  struct CheckRoot6Type<3, Short_t> : public std::true_type {
-    using Result = TH3S;
-  };
-  template <>
-  struct CheckRoot6Type<3, Int_t> : public std::true_type {
-    using Result = TH3I;
-  };
-  template <>
-  struct CheckRoot6Type<3, Float_t> : public std::true_type {
-    using Result = TH3F;
-  };
-  template <>
-  struct CheckRoot6Type<3, Double_t> : public std::true_type {
-    using Result = TH3D;
-  };
-
-  // ...and finally we'll add CheckStats_v-like sugar on top for consistency
-  template <int DIMENSIONS, class PRECISION>
-  static constexpr bool CheckRoot6Type_v =
-    CheckRoot6Type<DIMENSIONS, PRECISION>::value;
-
-
   // === BUILD A THx, FAILING AT RUNTIME IF NO CONSTRUCTOR EXISTS ===
 
   // TH1 and TH2 constructors enable building histograms with all supported
@@ -199,8 +36,9 @@ namespace detail
   // So, in the general case, we just build a ROOT 6 histogram with the
   // specified constructor parameters...
   //
-  template <int DIMENSIONS>
-  struct MakeRoot6Hist {
+  template <int DIMS>
+  struct MakeRoot6Hist
+  {
     template <typename Output, typename... BuildParams>
     static Output make(std::tuple<BuildParams...>&& build_params) {
       return std::make_from_tuple<Output>(std::move(build_params));
@@ -209,7 +47,8 @@ namespace detail
 
   // ...but for TH3, we must exercise more caution:
   template <>
-  struct MakeRoot6Hist<3> {
+  struct MakeRoot6Hist<3>
+  {
     // Generally speaking, we fail at runtime...
     template <typename Output, typename... BuildParams>
     static Output make(std::tuple<BuildParams...>&& th3_params) {
@@ -245,7 +84,7 @@ namespace detail
   };
 
 
-  // === OTHER DIMENSION-GENERIC RHIST -> THx CONVERSION BUILDING BLOCKS ===
+  // === MISC UTILITIES TO EASE THE ROOT7-ROOT6 IMPEDANCE MISMATCH ===
 
   // Convert a ROOT 7 histogram title into a ROOT 6 histogram title
   std::string convert_hist_title(const std::string& title);
@@ -265,11 +104,15 @@ namespace detail
   // configurations (currently equidistant, growable, irregular and labels)
   void setup_axis_base(TAxis& dest, const RExp::RAxisBase& src);
 
+
+  // === MAIN CONVERSION FUNCTIONS ===
+
   // Shorthand for a ridiculously long name
   template <int DIMS>
   using RHistImplBase = RExp::Detail::RHistImplPrecisionAgnosticBase<DIMS>;
 
-  // Histogram construction and configuration recursion for convert_hist
+  // Create a ROOT 6 histogram whose global and per-axis configuration matches
+  // that of an input ROOT 7 histogram as closely as possible.
   template <class Output, int AXIS, int DIMS, class... BuildParams>
   Output convert_hist_loop(const RHistImplBase<DIMS>& src_impl,
                            std::tuple<BuildParams...>&& build_params) {
@@ -371,15 +214,13 @@ namespace detail
     }
   }
 
+
   // Check that the input and output histogram use the same binning
   // conventions (starting index, N-d array serialization order...
-  //
-  // If any of these test fails, ROOT 7 binning went out of sync with
-  // ROOT 6 binning, and thusly broke our simple data transfer strategy :(
-  //
   template <class THx, int DIMS>
   void check_binning(const THx& dest, const RHistImplBase<DIMS>& src_impl)
   {
+    // Check that bins from ROOT 7 are "close enough" to those from ROOT 7
     auto bins_similar = [](auto src_bins, auto dest_bins) -> bool {
       static constexpr double TOLERANCE = 1e-6;
       if (src_bins.size() != dest_bins.size()) return false;
@@ -390,6 +231,7 @@ namespace detail
       return true;
     };
 
+    // Display a bunch of bins into a stringstream
     auto print_bins = [](std::ostringstream& s, auto local_bin_indices) {
       s << "{ ";
       for (size_t i = 0; i < local_bin_indices.size()-1; ++i) {
@@ -398,6 +240,8 @@ namespace detail
       s << local_bin_indices[local_bin_indices.size()-1] << " }";
     };
 
+    // If any of these test fails, ROOT 7 binning went out of sync with
+    // ROOT 6 binning, and thusly broke our simple data transfer strategy :(
     if (!bins_similar(src_impl.GetBinFrom(0), get_bin_from_root6(dest, 0))) {
       std::ostringstream s;
       s << "Binning origin doesn't match"
@@ -428,10 +272,8 @@ namespace detail
     }
   }
 
+
   // Convert a ROOT 7 histogram into a ROOT 6 one
-  //
-  // Offloads the work of filling up histogram data, which hasn't been made
-  // dimension-agnostic yet, to a dimension-specific worker.
   template <class Output, class Input>
   Output convert_hist(const Input& src, const char* name) {
     // Make sure that the input histogram's impl-pointer is set
@@ -511,77 +353,4 @@ namespace detail
     // Return the ROOT 6 histogram to the caller
     return dest;
   }
-
-
-  // === HISTCONVERTER SPECIALIZATIONS FOR SUPPORTED HISTOGRAM TYPES ===
-
-  // This struct is now an empty shell, but we still need it to check if the
-  // histogram type is supported via SFINAE.
-  template <int DIMS,
-            class PRECISION,
-            template <int D_, class P_> class... STAT>
-  struct HistConverter<RExp::RHist<DIMS, PRECISION, STAT...>,
-                       std::enable_if_t<CheckRoot6Type_v<DIMS, PRECISION>
-                                        && CheckStats_v<STAT...>>>
-  {
-  private:
-    using Input = RExp::RHist<DIMS, PRECISION, STAT...>;
-    using Output = typename CheckRoot6Type<DIMS, PRECISION>::Result;
-
-  public:
-    static Output convert(const Input& src, const char* name) {
-      return convert_hist<Output>(src, name);
-    }
-  };
-
-  // TODO: Support THn someday, if someone asks for it
 }
-
-
-// High-level interface to the above conversion machinery
-//
-// "src" is the histogram to be converted, and "name" plays the same role as in
-// the ROOT 6 histogram constructors.
-//
-template <typename Root7Hist>
-auto into_root6_hist(const Root7Hist& src, const char* name) {
-  return detail::HistConverter<Root7Hist>::convert(src, name);
-}
-
-
-// Explicit instantiations are provided for all basic histogram types
-//
-// TODO: Decide if we really want to provide instantiations for all of those
-//
-extern template auto into_root6_hist(const detail::RExp::RHist<1, Char_t>& src,
-                                     const char* name);
-extern template auto into_root6_hist(const detail::RExp::RHist<1, Short_t>& src,
-                                     const char* name);
-extern template auto into_root6_hist(const detail::RExp::RHist<1, Int_t>& src,
-                                     const char* name);
-extern template auto into_root6_hist(const detail::RExp::RHist<1, Float_t>& src,
-                                     const char* name);
-extern template auto into_root6_hist(const detail::RExp::RHist<1, Double_t>& src,
-                                     const char* name);
-//
-extern template auto into_root6_hist(const detail::RExp::RHist<2, Char_t>& src,
-                                     const char* name);
-extern template auto into_root6_hist(const detail::RExp::RHist<2, Short_t>& src,
-                                     const char* name);
-extern template auto into_root6_hist(const detail::RExp::RHist<2, Int_t>& src,
-                                     const char* name);
-extern template auto into_root6_hist(const detail::RExp::RHist<2, Float_t>& src,
-                                     const char* name);
-extern template auto into_root6_hist(const detail::RExp::RHist<2, Double_t>& src,
-                                     const char* name);
-//
-extern template auto into_root6_hist(const detail::RExp::RHist<3, Char_t>& src,
-                                     const char* name);
-extern template auto into_root6_hist(const detail::RExp::RHist<3, Short_t>& src,
-                                     const char* name);
-extern template auto into_root6_hist(const detail::RExp::RHist<3, Int_t>& src,
-                                     const char* name);
-extern template auto into_root6_hist(const detail::RExp::RHist<3, Float_t>& src,
-                                     const char* name);
-extern template auto into_root6_hist(const detail::RExp::RHist<3, Double_t>& src,
-                                     const char* name);

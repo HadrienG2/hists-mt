@@ -1,50 +1,17 @@
+#include "ROOT/RHist.hxx"
+
 #include <algorithm>
 #include <cstdlib>
 #include <cxxabi.h>
 #include <iostream>
 #include <typeinfo>
 
+// NOTE: You can also use histConv.hpp.dcl if you comment out the tests that
+//       use custom histogram statistics.
+// FIXME: Make test suite fancier so that it can test this as well as the
+//        compile-time and run-time failure cases described below.
 #include "histConv.hpp"
 #include "histConvTests.hpp"
-
-
-// Assert that instantiations are available for all basic histogram types
-//
-// TODO: Turn those into non-extern template instantiations if we decide to drop
-//       some explicit instantiations from the histConv backend.
-//
-extern template auto into_root6_hist(const RExp::RHist<1, Char_t>& src,
-                                     const char* name);
-extern template auto into_root6_hist(const RExp::RHist<1, Short_t>& src,
-                                     const char* name);
-extern template auto into_root6_hist(const RExp::RHist<1, Int_t>& src,
-                                     const char* name);
-extern template auto into_root6_hist(const RExp::RHist<1, Float_t>& src,
-                                     const char* name);
-extern template auto into_root6_hist(const RExp::RHist<1, Double_t>& src,
-                                     const char* name);
-//
-extern template auto into_root6_hist(const RExp::RHist<2, Char_t>& src,
-                                     const char* name);
-extern template auto into_root6_hist(const RExp::RHist<2, Short_t>& src,
-                                     const char* name);
-extern template auto into_root6_hist(const RExp::RHist<2, Int_t>& src,
-                                     const char* name);
-extern template auto into_root6_hist(const RExp::RHist<2, Float_t>& src,
-                                     const char* name);
-extern template auto into_root6_hist(const RExp::RHist<2, Double_t>& src,
-                                     const char* name);
-//
-extern template auto into_root6_hist(const RExp::RHist<3, Char_t>& src,
-                                     const char* name);
-extern template auto into_root6_hist(const RExp::RHist<3, Short_t>& src,
-                                     const char* name);
-extern template auto into_root6_hist(const RExp::RHist<3, Int_t>& src,
-                                     const char* name);
-extern template auto into_root6_hist(const RExp::RHist<3, Float_t>& src,
-                                     const char* name);
-extern template auto into_root6_hist(const RExp::RHist<3, Double_t>& src,
-                                     const char* name);
 
 
 int main() {
@@ -53,34 +20,35 @@ int main() {
 
   // Anyway, let's start the test
   for (size_t i = 0; i < NUM_TEST_RUNS; ++i) {
-    // Works (Minimal stats that we need)
-    test_conversion<1, char, RExp::RHistStatContent>({gen_axis_config(rng)});
-
-    // Also works (ROOT 7 implicitly adds an RHistStatContent here)
+    // Conversion from ROOT7's default histogram configuration works
     test_conversion<1, char>({gen_axis_config(rng)});
 
-    // Also works (More stats than actually needed)
+    // Custom statistics configurations are also supported:
+    // - Minimal stats that we need
+    test_conversion<1, char, RExp::RHistStatContent>({gen_axis_config(rng)});
+    // - More stats than actually needed
     test_conversion<1,
                     char,
                     RExp::RHistStatContent,
                     RExp::RHistDataMomentUncert>({gen_axis_config(rng)});
-
-    // Fails at compile time: insufficient stats. We fail fast, ROOT doesn't.
+    // - Insufficient stats are reported at compile time with a clear error
+    //   message (unfortunately followed by ROOT blowing up, for now...)
     /* test_conversion<1,
-                       char,
-                       RExp::RHistDataMomentUncert>({gen_axis_config(rng)}); */
-    /* test_conversion<1,
-                       char,
-                       RExp::RHistStatUncertainty,
-                       RExp::RHistDataMomentUncert>({gen_axis_config(rng)}); */
+                    char,
+                    RExp::RHistDataMomentUncert>({gen_axis_config(rng)});
+    test_conversion<1,
+                    char,
+                    RExp::RHistStatUncertainty,
+                    RExp::RHistDataMomentUncert>({gen_axis_config(rng)}); */
 
-    // Data types other than char work just as well, if supported by ROOT 6
+    // Data types other than char work just as well, if supported by ROOT6
     test_conversion<1, short>({gen_axis_config(rng)});
     test_conversion<1, int>({gen_axis_config(rng)});
     test_conversion<1, float>({gen_axis_config(rng)});
     test_conversion<1, double>({gen_axis_config(rng)});
 
-    // Fails at compile time: data type not supported by ROOT 6. We fail fast.
+    // This data type is not supported by ROOT6. The problem will be reported at
+    // compile time with a clear error message.
     /* test_conversion<1, size_t>({gen_axis_config(rng)}); */
 
     // FIXME: Higher-dimensional histograms are broken for now. I need to have
@@ -91,7 +59,7 @@ int main() {
     /* // Try it with a 2D histogram
     test_conversion<2, char>({gen_axis_config(rng), gen_axis_config(rng)});
 
-    // Try it with a 3D histogram
+    // Try it with a 3D histogram, using a homogeneous axis config
     auto axis1 = gen_axis_config(rng);
     auto axis2 = gen_axis_config(rng);
     while (axis2.GetKind() != axis1.GetKind()) axis2 = gen_axis_config(rng);
@@ -99,7 +67,8 @@ int main() {
     while (axis3.GetKind() != axis1.GetKind()) axis3 = gen_axis_config(rng);
     test_conversion<3, char>({axis1, axis2, axis3}); */
 
-    // Will fail at run time: TH3 only supports homogeneous axis configs
+    // This will fail at run-time after a few iterations: TH3 currently does not
+    // support inhomogeneous axis configs.
     /* test_conversion<3, char>({gen_axis_config(rng),
                                  gen_axis_config(rng),
                                  gen_axis_config(rng)}); */
