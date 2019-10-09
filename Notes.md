@@ -13,10 +13,10 @@
         - Sadly, these examples are written in ROOT style and don't even have
           a `main()` function, must be tweaked before they are usable.
 
-- Build with `g++ -O3 -march=native -std=c++17 -pthread -lCore -lHist foo.cxx`
-    * Container setup: `docker run --rm -it -v `pwd`/hists-mt:/mnt root-6.18-dev`
-    * Then call `export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH && cd /mnt`
-    * Quick hist conv testing: `g++ -O3 -march=native -std=c++17 -pthread -lCore -lHist histConvTests.cxx && printf "Build finished! Starting tests...\n\n" && ./a.out`
+- Container-based setup (for my machine, will need adaptations for yours)
+    * Start container: `docker run --rm -it -v `pwd`/hists-mt:/mnt root-6.18-dev`
+    * Set it up: `export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH && cd /mnt`
+    * Test histogram conversions: `make test -j8`
 
 - What ROOT 7 `hist` provides...
     * Mostly headers, a little bit of impl extracted in `src`, and some tests
