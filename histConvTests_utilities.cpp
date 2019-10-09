@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-#include "histConvTests.hpp"
+#include "histConvTests.hpp.dcl"
 
 
 RExp::RAxisConfig gen_axis_config(RNG& rng) {
