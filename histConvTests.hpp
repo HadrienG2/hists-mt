@@ -1,4 +1,6 @@
-#pragma once
+// Common ROOT7 -> ROOT6 histogram conversion test harness definitions
+// You only need histConvTests.hpp.dcl if you don't instantiate test_conversion
+#include "histConvTests.hpp.dcl"
 
 #include <cstdlib>
 #include <cxxabi.h>
@@ -8,7 +10,6 @@
 
 #include "ROOT/RHist.hxx"
 
-#include "histConvTests.hpp.dcl"
 // Sufficient for testing classic RHist configurations with test_conversion.
 // In order to test exotic statistics, you must also include histConv.hpp.
 #include "histConv.hpp.dcl"

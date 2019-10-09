@@ -1,5 +1,4 @@
 // Common ROOT7 -> ROOT6 histogram conversion test harness declarations
-//
 // Use histConvTests.hpp if you need to instantiate the test_conversion template
 
 #pragma once
