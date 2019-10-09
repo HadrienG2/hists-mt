@@ -1,4 +1,4 @@
-# CC=g++ is technically incorrect, but needed for LTO
+# CC=g++ is technically incorrect, but needed for LTO w/ implicit make rules
 CC:=g++
 CXX:=g++
 LTOFLAGS:=-flto
