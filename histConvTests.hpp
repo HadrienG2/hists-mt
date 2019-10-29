@@ -33,6 +33,8 @@ void test_conversion(RNG& rng,
   using Source = RExp::RHist<DIMS, PRECISION, STAT...>;
   Source src(title, axis_configs);
 
+  // FIXME: Factor out some of this for the sake of readability and fast builds
+
   // Determine which range the axes of that histogram span (from Fill's PoV)
   using CoordArray = typename Source::CoordArray_t;
   using Weight = typename Source::Weight_t;
@@ -133,10 +135,6 @@ void test_conversion(RNG& rng,
                                                     weights.cend(),
                                                     0.0)
                                   : coords.size();
-    // DEBUG: This doesn't work, currently investigating why
-    std::cout << "Using " << (variable_weight ? "constant" : "variable")
-              << " weights, expected sumw to be " << sumw << ", found "
-              << stats[0] << std::endl;
     ASSERT_CLOSE(sumw, stats[0], 1e-6, "Sum of weights is incorrect");
     // TODO: Check other stats, using if constexpr for TH2 and TH3 ones
 
@@ -186,6 +184,27 @@ void test_conversion(RNG& rng,
       print_axis_config(axis_config);
       std::cout << std::endl;
     }
+
+    // Print coordinates and weights
+    std::cout << "* Histogram was filled with the following "
+              << coords.size() << " data points of "
+              << (variable_weight ? "variable" : "constant") << " weight: { ";
+    auto print_point = [&](size_t point) {
+      std::cout << "[ ";
+      for (size_t dim = 0; dim < DIMS-1; ++dim) {
+        std::cout << coords[point][dim] << ", ";
+      }
+      std::cout << coords[point][DIMS-1] << " ]";
+      if (!variable_weight) { return; }
+      std::cout << " @ " << weights[point];
+    };
+    for (size_t point = 0; point < coords.size()-1; ++point) {
+      print_point(point);
+      std::cout << "; ";
+    }
+    print_point(coords.size()-1);
+    std::cout << " }" << std::endl;
+
 
     // TODO: Decide if aborting semantics are wanted
     std::cout << std::endl;

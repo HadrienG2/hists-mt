@@ -24,8 +24,8 @@ using RNG = std::mt19937_64;
 constexpr auto RNG_CHOICE = RNG::max() - RNG::min();
 
 // Parameter space being explored by the tests
-constexpr std::pair<int, int> NUM_BINS_RANGE{1, 1000};
-constexpr std::pair<size_t, size_t> NUM_DATA_POINTS_RANGE{0, 200};
+constexpr std::pair<int, int> NUM_BINS_RANGE{1, 10};
+constexpr std::pair<size_t, size_t> NUM_DATA_POINTS_RANGE{0, 100};
 constexpr std::pair<double, double> AXIS_LIMIT_RANGE{-10264.5, 1928.37};
 constexpr std::pair<double, double> WEIGHT_RANGE{0.9, 1.1};
 
