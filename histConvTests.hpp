@@ -2,6 +2,7 @@
 // You only need histConvTests.hpp.dcl if you don't instantiate test_conversion
 #include "histConvTests.hpp.dcl"
 
+#include <atomic>
 #include <cstdlib>
 #include <cxxabi.h>
 #include <iostream>
@@ -31,13 +32,9 @@ template <int DIMS,
           template <int D_, class P_> class... STAT>
 void test_conversion(std::array<RExp::RAxisConfig, DIMS>&& axis_configs) {
   // ROOT 6 is picky about unique names
-  //
-  // TODO: Use an atomic and fetch_add here if we decide to make the test
-  //       multi-threaded... but that will also require work on the ROOT 6 side.
-  //
-  static size_t ctr = 0;
+  static std::atomic<size_t> ctr = 0;
   std::string name = "Hist" + std::to_string(ctr);
-  ctr += 1;
+  ctr.fetch_add(1, std::memory_order_relaxed);
 
   // Generate a ROOT 7 histogram
   // TODO: Give it a random title -> extract title generator from utilities
