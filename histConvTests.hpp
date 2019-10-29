@@ -37,7 +37,9 @@ void test_conversion(std::array<RExp::RAxisConfig, DIMS>&& axis_configs) {
   ctr.fetch_add(1, std::memory_order_relaxed);
 
   // Generate a ROOT 7 histogram
-  RExp::RHist<DIMS, PRECISION, STAT...> src("Hist;title", axis_configs);
+  std::string title = "";
+  if (ctr > 0) title += "Hist;title;is;number " + std::to_string(ctr);
+  RExp::RHist<DIMS, PRECISION, STAT...> src(title, axis_configs);
   // TODO: Fill it with some test data
 
   // Convert it to ROOT 6 format and check the output
