@@ -20,6 +20,9 @@ class TAxis;
 // Source of pseudorandom numbers for randomized testing
 using RNG = std::mt19937_64;
 
+// RNG range, should add +1 to avoid bias but that can lead to overflow...
+constexpr auto RNG_CHOICE = RNG::max() - RNG::min();
+
 // Parameter space being explored by the tests
 constexpr std::pair<int, int> NUM_BINS_RANGE{1, 1000};
 constexpr std::pair<double, double> AXIS_LIMIT_RANGE{-10264.5, 1928.37};
@@ -32,6 +35,16 @@ constexpr size_t NUM_TEST_RUNS = 1000;
 
 // Typing this gets old quickly
 namespace RExp = ROOT::Experimental;
+
+// Generate a random boolean
+inline bool gen_bool(RNG& rng) {
+  return (rng() >= (RNG::min() + (RNG_CHOICE / 2)));
+}
+
+// Generate a random floating-point number
+inline double gen_double(RNG& rng, double min, double max) {
+  return min + (rng() - RNG::min()) * (max - min) / RNG_CHOICE;
+}
 
 // Generate a random ROOT 7 axis configuration
 RExp::RAxisConfig gen_axis_config(RNG& rng);
