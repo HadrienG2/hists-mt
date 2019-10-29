@@ -37,7 +37,7 @@ RExp::RAxisConfig gen_axis_config(RNG& rng) {
     return min + (rng() - rng.min()) * (max - min) / (rng.max() - rng.min());
   };
 
-  // Decide if histogram should have a title
+  // Decide if histogram axis should have a title
   bool has_title = gen_bool();
 
   // Generate an axis configuration

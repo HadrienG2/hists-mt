@@ -297,7 +297,14 @@ namespace detail
 
     // Make sure that under- and overflow bins are included in the
     // statistics, to match the ROOT 7 behavior (as of ROOT v6.18.0).
-    dest.SetStatOverflows(TH1::kConsider);
+    dest.SetStatOverflows(TH1::EStatOverflows::kConsider);
+
+    // Use normal statistics for bin errors, since ROOT7 doesn't seem to support
+    // other forms of bin error computation yet.
+    dest.SetBinErrorOption(TH1::EBinErrorOpt::kNormal);
+
+    // Set norm factor to zero (disable), since ROOT 7 doesn't seem to have this
+    dest.SetNormFactor(0);
 
     // Now we're ready to transfer histogram data. First of all, let's
     // assert that ROOT 6 and ROOT 7 use the same binning convention. This
