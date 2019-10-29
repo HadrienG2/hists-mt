@@ -24,6 +24,7 @@ using RNG = std::mt19937_64;
 constexpr auto RNG_CHOICE = RNG::max() - RNG::min();
 
 // Parameter space being explored by the tests
+// NOTE: Need max(data points) * max(weight) <= 127 to test char histograms
 constexpr std::pair<int, int> NUM_BINS_RANGE{1, 10};
 constexpr std::pair<size_t, size_t> NUM_DATA_POINTS_RANGE{0, 60};
 constexpr std::pair<double, double> AXIS_LIMIT_RANGE{-10264.5, 1928.37};
