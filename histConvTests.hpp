@@ -36,7 +36,7 @@ void test_conversion(std::array<RExp::RAxisConfig, DIMS>&& axis_configs) {
   std::string name = "Hist" + std::to_string(ctr);
   ctr.fetch_add(1, std::memory_order_relaxed);
 
-  // Generate a ROOT 7 histogram
+  // Generate a ROOT 7 histogram, testing both empty and semicolon-ridden titles
   std::string title = "";
   if (ctr > 0) title += "Hist;title;is;number " + std::to_string(ctr);
   RExp::RHist<DIMS, PRECISION, STAT...> src(title, axis_configs);
