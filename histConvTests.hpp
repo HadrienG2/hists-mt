@@ -39,10 +39,9 @@ void test_conversion(RNG& rng,
   using CoordArray = typename Source::CoordArray_t;
   using Weight = typename Source::Weight_t;
   std::pair<CoordArray, CoordArray> coord_range;
+  const bool exercise_overflow_bins = gen_bool(rng);
   for (size_t axis_idx = 0; axis_idx < DIMS; ++axis_idx) {
     const auto& axis_config = axis_configs[axis_idx];
-    // FIXME: Generate some out-of-range data for growable axes once ROOT 7 axis
-    //        growth is actually implemented...
     switch (axis_config.GetKind())
     {
     case RExp::RAxisConfig::EKind::kEquidistant:
@@ -51,6 +50,11 @@ void test_conversion(RNG& rng,
       const auto& bin_borders = axis_config.GetBinBorders();
       coord_range.first[axis_idx] = bin_borders[0];
       coord_range.second[axis_idx] = bin_borders[bin_borders.size()-1];
+      if (exercise_overflow_bins) {
+        const double bin_border_delta = bin_borders[1] - bin_borders[0];
+        coord_range.first[axis_idx] -= bin_border_delta;
+        coord_range.second[axis_idx] += bin_border_delta;
+      }
       break;
     }
 
@@ -58,6 +62,10 @@ void test_conversion(RNG& rng,
       const auto& bin_labels = axis_config.GetBinLabels();
       coord_range.first[axis_idx] = 0;
       coord_range.second[axis_idx] = bin_labels.size();
+      if (exercise_overflow_bins) {
+        coord_range.first[axis_idx] -= 1;
+        coord_range.second[axis_idx] += 1;
+      }
       break;
     }
 
@@ -71,7 +79,7 @@ void test_conversion(RNG& rng,
     static_cast<size_t>(gen_double(rng,
                                    NUM_DATA_POINTS_RANGE.first,
                                    NUM_DATA_POINTS_RANGE.second));
-  bool variable_weight = gen_bool(rng);
+  const bool variable_weight = gen_bool(rng);
   std::vector<CoordArray> coords;
   std::vector<Weight> weights;
   for (size_t data_idx = 0; data_idx < num_data_points; ++data_idx) {
@@ -116,27 +124,96 @@ void test_conversion(RNG& rng,
               "Output histogram shouldn't have a normalization factor");
 
     // Check axis configuration
-    if constexpr (DIMS >= 1) check_axis_config(*dest.GetXaxis(), axis_configs[0]);
+    check_axis_config(*dest.GetXaxis(), axis_configs[0]);
     if constexpr (DIMS >= 2) check_axis_config(*dest.GetYaxis(), axis_configs[1]);
-    if constexpr (DIMS >= 3) check_axis_config(*dest.GetZaxis(), axis_configs[2]);
+    if constexpr (DIMS == 3) check_axis_config(*dest.GetZaxis(), axis_configs[2]);
 
-    // TODO: Check output data and statistics
+    // Check global histogram stats
     ASSERT_EQ(coords.size(), dest.GetEntries(), "Invalid entry count");
     std::array<Double_t, TH1::kNstat> stats;
     dest.GetStats(stats.data());
+    auto sum_over_bins = [&src](auto&& bin_contribution) -> double {
+      double stat = 0.0;
+      for (const auto& bin : src) {
+        stat += bin_contribution(bin);
+      }
+      return stat;
+    };
     // From the TH1 documentation, stats contains at least...
     // s[0]  = sumw       s[1]  = sumw2
     // s[2]  = sumwx      s[3]  = sumwx2
-    // In TH2, stats also contains...
+    //
+    // NOTE: sumwx-style stats do not yield the same results in ROOT 6 and
+    //       ROOT 7 when over- and underflow bins are filled up, and that does
+    //       not seem fixable since it originates from different bin coordinate
+    //       conventions. Those stats are anyway somewhat meaningless in that
+    //       situation, accounting for overflow bins is just a debugging aid.
+    //       Therefore, I will not test those stats when exercising those bins.
+    //
+    const double sumw = sum_over_bins([](const auto& bin) -> double {
+      return bin.GetStat().GetContent();
+    });
+    ASSERT_CLOSE(sumw, stats[0], 1e-6, "Sum of weights is incorrect");
+    const double sumw2 = sum_over_bins([](const auto& bin) -> double {
+      const double err = bin.GetStat().GetUncertainty();
+      return err * err;
+    });
+    ASSERT_CLOSE(sumw2, stats[1], 1e-6, "Sum of squared error is incorrect");
+    if (!exercise_overflow_bins) {
+      const double sumwx = sum_over_bins([](const auto& bin) -> double {
+        return bin.GetStat().GetContent() * bin.GetCenter()[0];
+      });
+      ASSERT_CLOSE(sumwx, stats[2], 1e-6, "Sum of weight * x is incorrect");
+      const double sumwx2 = sum_over_bins([](const auto& bin) -> double {
+        const double x = bin.GetCenter()[0];
+        return bin.GetStat().GetContent() * x * x;
+      });
+      ASSERT_CLOSE(sumwx2, stats[3], 1e-6, "Sum of weight * x^2 is incorrect");
+    }
+    // In TH2+, stats also contains...
     // s[4]  = sumwy      s[5]  = sumwy2   s[6]  = sumwxy
+    if ((DIMS >= 2) && (!exercise_overflow_bins)) {
+      const double sumwy = sum_over_bins([](const auto& bin) -> double {
+        return bin.GetStat().GetContent() * bin.GetCenter()[1];
+      });
+      ASSERT_CLOSE(sumwy, stats[4], 1e-6, "Sum of weight * y is incorrect");
+      const double sumwy2 = sum_over_bins([](const auto& bin) -> double {
+        double y = bin.GetCenter()[1];
+        return bin.GetStat().GetContent() * y * y;
+      });
+      ASSERT_CLOSE(sumwy2, stats[5], 1e-6, "Sum of weight * y^2 is incorrect");
+      const double sumwxy = sum_over_bins([](const auto& bin) -> double {
+        const double x = bin.GetCenter()[0];
+        const double y = bin.GetCenter()[1];
+        return bin.GetStat().GetContent() * x * y;
+      });
+      ASSERT_CLOSE(sumwxy, stats[6], 1e-6, "Sum of weight * x * y is incorrect");
+    }
     // In TH3, stats also contains...
     // s[7]  = sumwz      s[8]  = sumwz2   s[9]  = sumwxz   s[10]  = sumwyz
-    double sumw = variable_weight ? std::accumulate(weights.cbegin(),
-                                                    weights.cend(),
-                                                    0.0)
-                                  : coords.size();
-    ASSERT_CLOSE(sumw, stats[0], 1e-6, "Sum of weights is incorrect");
-    // TODO: Check other stats, using if constexpr for TH2 and TH3 ones
+    if ((DIMS == 3) && (!exercise_overflow_bins)) {
+      const double sumwz = sum_over_bins([](const auto& bin) -> double {
+        return bin.GetStat().GetContent() * bin.GetCenter()[2];
+      });
+      ASSERT_CLOSE(sumwz, stats[7], 1e-6, "Sum of weight * z is incorrect");
+      const double sumwz2 = sum_over_bins([](const auto& bin) -> double {
+        double z = bin.GetCenter()[2];
+        return bin.GetStat().GetContent() * z * z;
+      });
+      ASSERT_CLOSE(sumwz2, stats[8], 1e-6, "Sum of weight * z^2 is incorrect");
+      const double sumwxz = sum_over_bins([](const auto& bin) -> double {
+        const double x = bin.GetCenter()[0];
+        const double z = bin.GetCenter()[2];
+        return bin.GetStat().GetContent() * x * z;
+      });
+      ASSERT_CLOSE(sumwxz, stats[9], 1e-6, "Sum of weight * x * z is incorrect");
+      const double sumwyz = sum_over_bins([](const auto& bin) -> double {
+        const double y = bin.GetCenter()[1];
+        const double z = bin.GetCenter()[2];
+        return bin.GetStat().GetContent() * y * z;
+      });
+      ASSERT_CLOSE(sumwyz, stats[10], 1e-6, "Sum of weight * y * z is incorrect");
+    }
 
     // TODO: Check per-bin stats, namely
     // - Per-bin histogram stats (not sure what's the most convenient way...)
@@ -154,15 +231,8 @@ void test_conversion(RNG& rng,
     virtual Double_t GetBinError(Int_t binx, Int_t biny) const { return GetBinError(GetBin(binx, biny)); } // for 2D histograms only
     virtual Double_t GetBinError(Int_t binx, Int_t biny, Int_t binz) const { return GetBinError(GetBin(binx, biny, binz)); } // for 3D histograms only
 
-    virtual Double_t GetEffectiveEntries() const;
-
-    virtual void     GetStats(Double_t *stats) const;
-    virtual Double_t GetStdDev(Int_t axis=1) const;
-    virtual Double_t GetStdDevError(Int_t axis=1) const;
-    virtual Double_t GetSumOfWeights() const;
     virtual const TArrayD *GetSumw2() const {return &fSumw2;}
-    virtual Int_t    GetSumw2N() const {return fSumw2.fN;}
-    virtual Double_t GetSkewness(Int_t axis=1) const; */
+    virtual Int_t    GetSumw2N() const {return fSumw2.fN;}  */
   }
   catch (const std::runtime_error& e)
   {
@@ -188,7 +258,11 @@ void test_conversion(RNG& rng,
     // Print coordinates and weights
     std::cout << "* Histogram was filled with the following "
               << coords.size() << " data points of "
-              << (variable_weight ? "variable" : "constant") << " weight: { ";
+              << (variable_weight ? "variable" : "constant") << " weight";
+    if (exercise_overflow_bins) {
+      std::cout << ", some of which exercized under- and overflow bins";
+    }
+    std::cout << ": { ";
     auto print_point = [&](size_t point) {
       std::cout << "[ ";
       for (size_t dim = 0; dim < DIMS-1; ++dim) {
@@ -196,7 +270,7 @@ void test_conversion(RNG& rng,
       }
       std::cout << coords[point][DIMS-1] << " ]";
       if (!variable_weight) { return; }
-      std::cout << " @ " << weights[point];
+      std::cout << " @ " << double(weights[point]);
     };
     for (size_t point = 0; point < coords.size()-1; ++point) {
       print_point(point);

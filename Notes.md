@@ -187,3 +187,14 @@
           from the fact that they instantiate higher-dimensional `RHist`s.
         - It might be possible to investigate this further with templight, but
           I'm not sure how well it would cope with ROOT and C++17...
+
+- Now I have some global histogram tests, and that actually yielded an
+  interesting observation. sumwx-style stats are different in ROOT 7 and ROOT 6
+  histograms, no matter what the ROOT 6 StatOverflows setting is, because...
+    * ROOT 7 stats include overflow bins, like ROOT 6 EStatOverflows::kConsider
+    * ...but they attribute different coordinates to overflow and underflow
+      bins, so those stats yield different results.
+    * Stats which include under- and overflow bins are arguably meaningless
+      anyway, it's just a useful debugging tool.
+    * Therefore, I will not check the exact value of those stats when
+      inserting data in overflow and underflow bins
