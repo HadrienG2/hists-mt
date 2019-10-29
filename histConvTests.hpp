@@ -20,7 +20,8 @@
 template <int DIMS,
           class PRECISION,
           template <int D_, class P_> class... STAT>
-void test_conversion(std::array<RExp::RAxisConfig, DIMS>&& axis_configs) {
+void test_conversion(RNG& rng,
+                     std::array<RExp::RAxisConfig, DIMS>&& axis_configs) {
   // ROOT 6 is picky about unique names
   static std::atomic<size_t> ctr = 0;
   std::string name = "Hist" + std::to_string(ctr);
@@ -29,11 +30,69 @@ void test_conversion(std::array<RExp::RAxisConfig, DIMS>&& axis_configs) {
   // Generate a ROOT 7 histogram, testing both empty and semicolon-ridden titles
   std::string title = "";
   if (ctr > 0) title += "Hist;title;is;number " + std::to_string(ctr);
-  RExp::RHist<DIMS, PRECISION, STAT...> src(title, axis_configs);
+  using Source = RExp::RHist<DIMS, PRECISION, STAT...>;
+  Source src(title, axis_configs);
 
-  // TODO: Fill that histogram with some test data
+  // Determine which range the axes of that histogram span (from Fill's PoV)
+  using CoordArray = typename Source::CoordArray_t;
+  using Weight = typename Source::Weight_t;
+  std::pair<CoordArray, CoordArray> coord_range;
+  for (size_t axis_idx = 0; axis_idx < DIMS; ++axis_idx) {
+    const auto& axis_config = axis_configs[axis_idx];
+    // FIXME: Generate some out-of-range data for growable axes once ROOT 7 axis
+    //        growth is actually implemented...
+    switch (axis_config.GetKind())
+    {
+    case RExp::RAxisConfig::EKind::kEquidistant:
+    case RExp::RAxisConfig::EKind::kGrow:
+    case RExp::RAxisConfig::EKind::kIrregular: {
+      const auto& bin_borders = axis_config.GetBinBorders();
+      coord_range.first[axis_idx] = bin_borders[0];
+      coord_range.second[axis_idx] = bin_borders[bin_borders.size()-1];
+      break;
+    }
 
-  // Convert it to ROOT 6 format and check the output
+    case RExp::RAxisConfig::EKind::kLabels: {
+      const auto& bin_labels = axis_config.GetBinLabels();
+      coord_range.first[axis_idx] = 0;
+      coord_range.second[axis_idx] = bin_labels.size();
+      break;
+    }
+
+    default:
+      throw std::runtime_error("This switch is broken, please fix it");
+    }
+  }
+
+  // Generate some test data to fill the ROOT 7 histogram with
+  size_t num_data_points =
+    static_cast<size_t>(gen_double(rng,
+                                   NUM_DATA_POINTS_RANGE.first,
+                                   NUM_DATA_POINTS_RANGE.second));
+  bool variable_weight = gen_bool(rng);
+  std::vector<CoordArray> coords;
+  std::vector<Weight> weights;
+  for (size_t data_idx = 0; data_idx < num_data_points; ++data_idx) {
+    CoordArray coord;
+    for (size_t axis_idx = 0; axis_idx < DIMS; ++axis_idx) {
+      coord[axis_idx] = gen_double(rng,
+                                   coord_range.first[axis_idx],
+                                   coord_range.second[axis_idx]);
+    }
+    coords.push_back(coord);
+    if (variable_weight) weights.push_back(gen_double(rng,
+                                                      WEIGHT_RANGE.first,
+                                                      WEIGHT_RANGE.second));
+  }
+
+  // Fill the ROOT 7 histogram with the test data
+  if (variable_weight) {
+    src.FillN(coords, weights);
+  } else {
+    src.FillN(coords);
+  }
+
+  // Convert the ROOT 7 histogram to ROOT 6 format and check the output
   try
   {
     // Perform the conversion
@@ -59,8 +118,34 @@ void test_conversion(std::array<RExp::RAxisConfig, DIMS>&& axis_configs) {
     if constexpr (DIMS >= 2) check_axis_config(*dest.GetYaxis(), axis_configs[1]);
     if constexpr (DIMS >= 3) check_axis_config(*dest.GetZaxis(), axis_configs[2]);
 
-    // TODO: Check output data and statistics (requires input data)
-    /* Properties from TH1 to be tested are:
+    // TODO: Check output data and statistics
+    ASSERT_EQ(coords.size(), dest.GetEntries(), "Invalid entry count");
+    std::array<Double_t, TH1::kNstat> stats;
+    dest.GetStats(stats.data());
+    // From the TH1 documentation, stats contains at least...
+    // s[0]  = sumw       s[1]  = sumw2
+    // s[2]  = sumwx      s[3]  = sumwx2
+    // In TH2, stats also contains...
+    // s[4]  = sumwy      s[5]  = sumwy2   s[6]  = sumwxy
+    // In TH3, stats also contains...
+    // s[7]  = sumwz      s[8]  = sumwz2   s[9]  = sumwxz   s[10]  = sumwyz
+    double sumw = variable_weight ? std::accumulate(weights.cbegin(),
+                                                    weights.cend(),
+                                                    0.0)
+                                  : coords.size();
+    // DEBUG: This doesn't work, currently investigating why
+    std::cout << "Using " << (variable_weight ? "constant" : "variable")
+              << " weights, expected sumw to be " << sumw << ", found "
+              << stats[0] << std::endl;
+    ASSERT_CLOSE(sumw, stats[0], 1e-6, "Sum of weights is incorrect");
+
+    /* Other properties from TH1 to be tested are:
+
+    - Global histogram stats (can be queried via GetStats())
+    - Per-bin histogram stats (not sure what's the most convenient way...)
+    - Per-bin SumW2 (if recorded, can be queried via GetSumw2)
+
+    Here's a reminder of some useful TH1 queries:
 
     // Used to check other properties only
     virtual Int_t    GetBin(Int_t binx, Int_t biny=0, Int_t binz=0) const;
@@ -73,7 +158,6 @@ void test_conversion(std::array<RExp::RAxisConfig, DIMS>&& axis_configs) {
     virtual Double_t GetBinError(Int_t binx, Int_t biny) const { return GetBinError(GetBin(binx, biny)); } // for 2D histograms only
     virtual Double_t GetBinError(Int_t binx, Int_t biny, Int_t binz) const { return GetBinError(GetBin(binx, biny, binz)); } // for 3D histograms only
 
-    virtual Double_t GetEntries() const;
     virtual Double_t GetEffectiveEntries() const;
 
     virtual void     GetStats(Double_t *stats) const;
