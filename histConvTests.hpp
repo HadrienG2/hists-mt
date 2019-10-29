@@ -3,7 +3,6 @@
 #include "histConvTests.hpp.dcl"
 
 #include <atomic>
-#include <cstdlib>
 #include <cxxabi.h>
 #include <iostream>
 #include <string>
@@ -237,7 +236,7 @@ void test_conversion(RNG& rng,
   catch (const std::runtime_error& e)
   {
     // Print exception text
-    std::cout << "Histogram conversion error: " << e.what() << std::endl;
+    std::cout << "\nHistogram conversion error: " << e.what() << std::endl;
 
     // Use GCC ABI to print histogram type
     char * hist_type_name;
@@ -279,9 +278,8 @@ void test_conversion(RNG& rng,
     print_point(coords.size()-1);
     std::cout << " }" << std::endl;
 
-
-    // TODO: Decide if aborting semantics are wanted
+    // Time to die...
     std::cout << std::endl;
-    std::abort();
+    throw std::runtime_error("Found a failing histogram conversion");
   }
 }
