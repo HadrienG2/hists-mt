@@ -11,6 +11,10 @@
 #include "ROOT/RAxis.hxx"
 
 
+// === FORWARD DECLARATIONS ===
+class TAxis;
+
+
 // === TEST TUNING KNOBS ===
 
 // Source of pseudorandom numbers for randomized testing
@@ -45,3 +49,24 @@ template <int DIMS,
           class PRECISION,
           template <int D_, class P_> class... STAT>
 void test_conversion(std::array<RExp::RAxisConfig, DIMS>&& axis_configs);
+
+// Check that a ROOT 6 axis matches a ROOT 7 axis configuration
+// FIXME: Cannot use const TAxis& because some accessors are not const
+void check_axis_config(TAxis& axis, const RExp::RAxisConfig& config);
+
+
+// === TEST ASSERTIONS ===
+
+// Check that two things are equal, else throw runtime error.
+#define ASSERT_EQ(x, y, failure_message)  \
+  if ((x) != (y)) { throw std::runtime_error((failure_message)); }
+
+// Check that two floating-point numbers are relatively close (by given
+// tolerance, else throw runtime error.
+#define ASSERT_CLOSE(x, ref, tol, failure_message)  \
+  if (std::abs((x) - (ref)) > (tol) * std::abs((ref)))  \
+    { throw std::runtime_error((failure_message)); }
+
+// Check that a pointer is not null, else throw runtime error
+#define ASSERT_NOT_NULL(x, failure_message)  \
+  if (nullptr == (x)) { throw std::runtime_error((failure_message)); }

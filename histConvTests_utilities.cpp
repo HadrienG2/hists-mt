@@ -2,6 +2,9 @@
 // Extracted from histConvTests.cpp to clean that file up and speed up builds
 
 #include "ROOT/RAxis.hxx"
+#include "TAxis.h"
+#include "THashList.h"
+#include "TObjString.h"
 
 #include <algorithm>
 #include <exception>
@@ -182,5 +185,74 @@ void print_axis_config(const RExp::RAxisConfig& axis_config) {
 
   default:
     throw std::runtime_error("Unsupported axis kind, please fix it.");
+  }
+}
+
+
+void check_axis_config(TAxis& axis, const RExp::RAxisConfig& config) {
+  // Checks which are common to all axis configurations
+  ASSERT_EQ(config.GetTitle(), axis.GetTitle(),
+            "Incorrect output axis title");
+  ASSERT_EQ(config.GetNBinsNoOver(), axis.GetNbins(),
+            "Incorrect number of bins");
+  // FIXME: No direct axis to RAxisBase::fCanGrow at this point in time...
+  ASSERT_EQ(config.GetNOverflowBins() == 0, axis.CanExtend(),
+            "Axis growability does not match");
+
+  // Checks which are specific to RAxisEquidistant and RAxisGrow
+  const bool is_equidistant =
+    config.GetKind() == RExp::RAxisConfig::EKind::kEquidistant;
+  const bool is_grow =
+    config.GetKind() == RExp::RAxisConfig::EKind::kGrow;
+  if (is_equidistant || is_grow) {
+    ASSERT_CLOSE(config.GetBinBorders()[0], axis.GetXmin(), 1e-6,
+                 "Axis minimum does not match");
+    ASSERT_CLOSE(config.GetBinBorders()[1], axis.GetXmax(), 1e-6,
+                 "Axis maximum does not match");
+  }
+
+  // Checks which are specific to irregular axes
+  const bool is_irregular =
+    config.GetKind() == RExp::RAxisConfig::EKind::kIrregular;
+  ASSERT_EQ(is_irregular,
+            axis.IsVariableBinSize(),
+            "Irregular ROOT 7 axes (only) should have variable bins");
+  if (is_irregular) {
+    const auto& bins = *axis.GetXbins();
+    const auto& expected_bins = config.GetBinBorders();
+    ASSERT_EQ(bins.fN, expected_bins.size(), "Wrong number of bin borders");
+    for (size_t i = 0; i < bins.fN; ++i) {
+      ASSERT_EQ(bins[i], expected_bins[i], "Wrong bin border values");
+    }
+  }
+
+  // Checks which are specific to labeled axes
+  // FIXME: Untested code path because ROOT 7 labeled axes don't work yet
+  bool is_labeled = config.GetKind() == RExp::RAxisConfig::EKind::kLabels;
+  ASSERT_EQ(is_labeled,
+            axis.CanBeAlphanumeric() || axis.IsAlphanumeric(),
+            "Labeled ROOT 7 axes (only) should be alphanumeric");
+  if (is_labeled) {
+    auto labels_ptr = axis.GetLabels();
+    ASSERT_NOT_NULL(labels_ptr, "Labeled axes should have labels");
+
+    auto labels_iter_ptr = labels_ptr->MakeIterator();
+    const auto expected_labels = config.GetBinLabels();
+    auto expected_labels_iter = expected_labels.cbegin();
+    TObject* label_ptr;
+    size_t num_labels = 0;
+
+    while ((label_ptr = labels_iter_ptr->Next())
+           && (expected_labels_iter != expected_labels.cend())) {
+      num_labels += 1;
+      const auto& label = dynamic_cast<const TObjString&>(*label_ptr);
+      ASSERT_EQ(expected_labels_iter->c_str(), label.GetString(),
+                "Some axis labels do not match");
+      ++expected_labels_iter;
+    }
+
+    ASSERT_EQ(expected_labels.size(), num_labels,
+              "Number of axis labels does not match");
+    delete labels_iter_ptr;
   }
 }

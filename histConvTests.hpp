@@ -9,8 +9,6 @@
 #include <typeinfo>
 
 #include "ROOT/RHist.hxx"
-#include "THashList.h"
-#include "TObjString.h"
 
 // Sufficient for testing classic RHist configurations with test_conversion.
 // In order to test exotic statistics, you must also include histConv.hpp.
@@ -53,9 +51,6 @@ void test_conversion(std::array<RExp::RAxisConfig, DIMS>&& axis_configs) {
     // Perform the conversion
     auto dest = into_root6_hist(src, name.c_str());
 
-    // FIXME: Deduplicate some checks out of this templated function so that we
-    //        don't generate one copy of the code per type of ROOT 7 histogram.
-
     // Check general output histogram configuration
     const auto& src_impl = *src.GetImpl();
     ASSERT_EQ(name, dest.GetName(), "Incorrect output histogram name");
@@ -72,77 +67,9 @@ void test_conversion(std::array<RExp::RAxisConfig, DIMS>&& axis_configs) {
               "Output histogram shouldn't have a normalization factor");
 
     // Check axis configuration
-    // FIXME: Non-const TAxis& because xxxAlphanumeric methods aren't const
-    auto check_axis = [](TAxis& axis, const RExp::RAxisConfig& config) {
-      ASSERT_EQ(config.GetTitle(), axis.GetTitle(),
-                "Incorrect output axis title");
-      ASSERT_EQ(config.GetNBinsNoOver(), axis.GetNbins(),
-                "Incorrect number of bins");
-
-      // FIXME: No direct axis to RAxisBase::fCanGrow at this point in time...
-      ASSERT_EQ(config.GetNOverflowBins() == 0, axis.CanExtend(),
-                "Axis growability does not match");
-
-      // Checks which are specific to RAxisEquidistant and RAxisGrow
-      const bool is_equidistant = 
-        config.GetKind() == RExp::RAxisConfig::EKind::kEquidistant;
-      const bool is_grow =
-        config.GetKind() == RExp::RAxisConfig::EKind::kGrow;
-      if (is_equidistant || is_grow) {
-        ASSERT_CLOSE(config.GetBinBorders()[0], axis.GetXmin(), 1e-6,
-                     "Axis minimum does not match");
-        ASSERT_CLOSE(config.GetBinBorders()[1], axis.GetXmax(), 1e-6,
-                     "Axis maximum does not match");
-      }
-
-      // Checks which are specific to irregular axes
-      const bool is_irregular =
-        config.GetKind() == RExp::RAxisConfig::EKind::kIrregular;
-      ASSERT_EQ(is_irregular,
-                axis.IsVariableBinSize(),
-                "Irregular ROOT 7 axes (only) should have variable bins");
-      if (is_irregular) {
-        const auto& bins = *axis.GetXbins();
-        const auto& expected_bins = config.GetBinBorders();
-        ASSERT_EQ(bins.fN, expected_bins.size(), "Wrong number of bin borders");
-        for (size_t i = 0; i < bins.fN; ++i) {
-          ASSERT_EQ(bins[i], expected_bins[i], "Wrong bin border values");
-        }
-      }
-
-      // Checks which are specific to labeled axes
-      // FIXME: Untested code path because ROOT 7 labeled axes don't work yet
-      bool is_labeled = config.GetKind() == RExp::RAxisConfig::EKind::kLabels;
-      ASSERT_EQ(is_labeled,
-                axis.CanBeAlphanumeric() || axis.IsAlphanumeric(),
-                "Labeled ROOT 7 axes (only) should be alphanumeric");
-      if (is_labeled) {
-        auto labels_ptr = axis.GetLabels();
-        ASSERT_NOT_NULL(labels_ptr, "Labeled axes should have labels");
-
-        auto labels_iter_ptr = labels_ptr->MakeIterator();
-        const auto expected_labels = config.GetBinLabels();
-        auto expected_labels_iter = expected_labels.cbegin();
-        TObject* label_ptr;
-        size_t num_labels = 0;
-
-        while ((label_ptr = labels_iter_ptr->Next())
-               && (expected_labels_iter != expected_labels.cend())) {
-          num_labels += 1;
-          const auto& label = dynamic_cast<const TObjString&>(*label_ptr);
-          ASSERT_EQ(expected_labels_iter->c_str(), label.GetString(),
-                    "Some axis labels do not match");
-          ++expected_labels_iter;
-        }
-
-        ASSERT_EQ(expected_labels.size(), num_labels,
-                  "Number of axis labels does not match");
-        delete labels_iter_ptr;
-      }
-    };
-    if constexpr (DIMS >= 1) check_axis(*dest.GetXaxis(), axis_configs[0]);
-    if constexpr (DIMS >= 2) check_axis(*dest.GetYaxis(), axis_configs[1]);
-    if constexpr (DIMS >= 3) check_axis(*dest.GetZaxis(), axis_configs[2]);
+    if constexpr (DIMS >= 1) check_axis_config(*dest.GetXaxis(), axis_configs[0]);
+    if constexpr (DIMS >= 2) check_axis_config(*dest.GetYaxis(), axis_configs[1]);
+    if constexpr (DIMS >= 3) check_axis_config(*dest.GetZaxis(), axis_configs[2]);
 
     // TODO: Check output data and statistics (requires input data)
     /* Properties from TH1 to be tested are:
