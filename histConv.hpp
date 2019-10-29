@@ -252,8 +252,8 @@ namespace detail
       s << ')';
       throw std::runtime_error(s.str());
     }
-    // FIXME: This doesn't work if the input histogram only has one bin
-    if (!bins_similar(src_impl.GetBinFrom(1), get_bin_from_root6(dest, 1))) {
+    if ((src_impl.GetNBins() >=2)
+        && (!bins_similar(src_impl.GetBinFrom(1), get_bin_from_root6(dest, 1)))) {
       std::ostringstream s;
       s << "Binning order doesn't match"
         << " (source histogram's second bin is at ";

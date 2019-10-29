@@ -221,7 +221,6 @@ void check_axis_config(TAxis& axis, const RExp::RAxisConfig& config) {
   }
 
   // Checks which are specific to labeled axes
-  // FIXME: Untested code path because ROOT 7 labeled axes don't work yet
   bool is_labeled = config.GetKind() == RExp::RAxisConfig::EKind::kLabels;
   ASSERT_EQ(is_labeled,
             axis.CanBeAlphanumeric() || axis.IsAlphanumeric(),

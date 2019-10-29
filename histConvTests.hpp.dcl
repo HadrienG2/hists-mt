@@ -68,7 +68,7 @@ void test_conversion(RNG& rng,
                      std::array<RExp::RAxisConfig, DIMS>&& axis_configs);
 
 // Check that a ROOT 6 axis matches a ROOT 7 axis configuration
-// FIXME: Cannot use const TAxis& because some accessors are not const
+// NOTE: Cannot use const TAxis& because some TAxis accessors are not const...
 void check_axis_config(TAxis& axis, const RExp::RAxisConfig& config);
 
 
