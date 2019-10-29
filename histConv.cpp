@@ -93,6 +93,11 @@ namespace detail
     // Propagate axis growability
     // FIXME: No direct access fo fCanGrow in RAxisBase yet!
     dest.SetCanExtend((src.GetNOverflowBins() == 0));
+
+    // Propagate whether this is a labeled axis
+    // FIXME: Can't support labeled axes yet because RAxisBase does not even
+    //        provide a way to check if an axis is labeled...
+    dest.SetNoAlphanumeric(true);
   }
 
 

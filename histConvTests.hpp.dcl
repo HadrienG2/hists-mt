@@ -4,6 +4,7 @@
 #pragma once
 
 #include <array>
+#include <exception>
 #include <random>
 #include <utility>
 
