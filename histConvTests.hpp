@@ -138,14 +138,12 @@ void test_conversion(RNG& rng,
               << " weights, expected sumw to be " << sumw << ", found "
               << stats[0] << std::endl;
     ASSERT_CLOSE(sumw, stats[0], 1e-6, "Sum of weights is incorrect");
+    // TODO: Check other stats, using if constexpr for TH2 and TH3 ones
 
-    /* Other properties from TH1 to be tested are:
-
-    - Global histogram stats (can be queried via GetStats())
-    - Per-bin histogram stats (not sure what's the most convenient way...)
-    - Per-bin SumW2 (if recorded, can be queried via GetSumw2)
-
-    Here's a reminder of some useful TH1 queries:
+    // TODO: Check per-bin stats, namely
+    // - Per-bin histogram stats (not sure what's the most convenient way...)
+    // - Per-bin SumW2 (if recorded, can be queried via GetSumw2)
+    /* Here's a reminder of some useful TH1 queries:
 
     // Used to check other properties only
     virtual Int_t    GetBin(Int_t binx, Int_t biny=0, Int_t binz=0) const;
