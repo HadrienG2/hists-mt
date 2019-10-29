@@ -16,16 +16,6 @@
 #include "histConv.hpp.dcl"
 
 
-// What would a test suite be without assertions?
-#define ASSERT_EQ(x, y, failure_message)  \
-        if ((x) != (y)) { throw std::runtime_error((failure_message)); }
-#define ASSERT_CLOSE(x, ref, tol, failure_message)  \
-        if (std::abs((x) - (ref)) > (tol) * std::abs((ref)))  \
-          { throw std::runtime_error((failure_message)); }
-#define ASSERT_NOT_NULL(x, failure_message)  \
-        if (nullptr == (x)) { throw std::runtime_error((failure_message)); }
-
-
 // Run tests for a certain ROOT 7 histogram type and axis configuration
 template <int DIMS,
           class PRECISION,
