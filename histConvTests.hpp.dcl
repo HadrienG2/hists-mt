@@ -30,7 +30,7 @@ constexpr std::pair<double, double> AXIS_LIMIT_RANGE{-10264.5, 1928.37};
 constexpr std::pair<double, double> WEIGHT_RANGE{0.9, 1.1};
 
 // Number of random test iterations, tune up for extra coverage at a speed cost
-constexpr size_t NUM_TEST_RUNS = 1000;
+constexpr size_t NUM_TEST_RUNS = 10000;
 
 
 // === COMMON DECLARATIONS ===
