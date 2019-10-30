@@ -30,11 +30,12 @@ namespace detail
   // axes configurations. TH3, however, only provide constructors for
   // all-equidistant and all-irregular axis configurations.
   //
-  // We (ahem) respect this design choice, so we fail at runtime if an
-  // RHist<3, T> with an incompatible axis configuration is converted.
+  // We do not know the axis configuration of a ROOT 7 histogram until runtime,
+  // therefore we must fail at runtime when a ROOT 7 histogram with incompatible
+  // axis configuration is requested.
   //
-  // So, in the general case, we just build a ROOT 6 histogram with the
-  // specified constructor parameters...
+  // So, in the general case, used by TH1 and TH2, we just build a ROOT 6
+  // histogram with the specified constructor parameters...
   //
   template <int DIMS>
   struct MakeRoot6Hist
@@ -45,7 +46,8 @@ namespace detail
     }
   };
 
-  // ...but for TH3, we must exercise more caution:
+  // ...while in the TH3 case, we detect incompatible axis configurations and
+  // fail at runtime upon encountering them.
   template <>
   struct MakeRoot6Hist<3>
   {
@@ -107,7 +109,7 @@ namespace detail
 
   // === MAIN CONVERSION FUNCTIONS ===
 
-  // Shorthand for a ridiculously long name
+  // Shorthand for an excessively long name
   template <int DIMS>
   using RHistImplBase = RExp::Detail::RHistImplPrecisionAgnosticBase<DIMS>;
 
@@ -148,10 +150,10 @@ namespace detail
 
         // If the axis is labeled, propagate labels
         //
-        // FIXME: I cannot find a way to go from RAxisView to labels!
-        //        Even dynamic_casting RAxisEquidistant* to RAxisLabels*
-        //        fails because the type is not polymorphic (does not
-        //        have a single virtual method).
+        // FIXME: There does not seem to be a way to go from RAxisView to axis
+        //        labels at the moment. Even dynamic_cast will fail because
+        //        RAxisXyz do not contain a single virtual method, and therefore
+        //        do not have the required infrastructure for dcasting.
         //
         /* const auto* lbl_axis_ptr =
           dynamic_cast<const RExp::RAxisLabels*>(&eq_axis);
@@ -202,8 +204,8 @@ namespace detail
       throw std::runtime_error("Unsupported histogram axis type");
     } else if constexpr (AXIS == DIMS) {
       // We've reached the bottom of the histogram construction recursion.
-      // All histogram constructor parameters have been collected, we can
-      // now construct the ROOT 6 histogram.
+      // All histogram constructor parameters have been collected in the
+      // build_params tuple, so we can now construct the ROOT 6 histogram.
       return MakeRoot6Hist<DIMS>::template make<Output>(
         std::move(build_params)
       );
@@ -216,7 +218,8 @@ namespace detail
 
 
   // Check that the input and output histogram use the same binning
-  // conventions (starting index, N-d array serialization order...
+  // conventions (starting index, N-d array serialization order) since we
+  // currently rely on that assumption for fast histogram bin data transfer.
   template <class THx, int DIMS>
   void check_binning(const THx& dest, const RHistImplBase<DIMS>& src_impl)
   {
@@ -300,7 +303,7 @@ namespace detail
     dest.SetStatOverflows(TH1::EStatOverflows::kConsider);
 
     // Use normal statistics for bin errors, since ROOT7 doesn't seem to support
-    // other forms of bin error computation yet.
+    // Poisson bin error computation yet.
     dest.SetBinErrorOption(TH1::EBinErrorOpt::kNormal);
 
     // Set norm factor to zero (disable), since ROOT 7 doesn't seem to have this
@@ -308,7 +311,7 @@ namespace detail
 
     // Now we're ready to transfer histogram data. First of all, let's
     // assert that ROOT 6 and ROOT 7 use the same binning convention. This
-    // is true as of ROOT 6.18.0, but may change in the future...
+    // seems true as of ROOT 6.18.0, but may change in the future...
     check_binning(dest, *src.GetImpl());
 
     // Propagate bin uncertainties, if present.

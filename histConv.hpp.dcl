@@ -12,7 +12,7 @@
 #include <type_traits>
 
 
-// Forward declarations for ROOT types
+// Forward declarations for ROOT 7 types
 namespace ROOT { namespace Experimental {
   template <int DIMS,
             class PRECISION,
@@ -56,7 +56,7 @@ namespace detail
   // performs the conversion. That function takes the following parameters:
   //
   // - The ROOT 7 histogram that must be converted into a ROOT 6 one.
-  // - A name, playing the same role as ROOT 6's "name" constructor parameter.
+  // - A ROOT 6 histogram name (used for ROOT I/O, ROOT 7 doesn't have this)
   //
   template <typename Input, typename Enable = void>
   struct HistConverter
@@ -116,9 +116,7 @@ namespace detail
   // This must be done via specialization, so let's define the failing case...
   //
   template <int DIMENSIONS, class PRECISION>
-  struct CheckRoot6Type : public std::false_type
-  {
-    // Tell the user we don't know of an equivalent to this histogram type
+  struct CheckRoot6Type : public std::false_type {
     static_assert(always_false<PRECISION>,
                   "No known ROOT 6 histogram type matches the input "
                   "histogram's dimensionality and precision");
@@ -204,8 +202,8 @@ namespace detail
   // Convert a ROOT 7 histogram into a ROOT 6 one
   //
   // This template does not validate its input type arguments. You'll get
-  // horrible C++ template error messages if you get them wrong. Use the checked
-  // into_root6_hist API to avoid this.
+  // horrible C++ template error messages if you get them wrong. Use the
+  // type-checked into_root6_hist API instead to avoid this.
   //
   template <class Output, class Input>
   Output convert_hist(const Input& src, const char* name);
@@ -258,8 +256,8 @@ namespace detail
 
 // High-level interface to the above conversion machinery
 //
-// "src" is the histogram to be converted, and "name" plays the same role as in
-// the ROOT 6 histogram constructors.
+// "src" is the ROOT 7 histogram to be converted, and "name" is a ROOT 6
+// histogram name (used for ROOT I/O, should be unique).
 //
 template <typename Root7Hist>
 auto into_root6_hist(const Root7Hist& src, const char* name) {

@@ -23,7 +23,7 @@ namespace detail
       case 0: return *hist.GetXaxis();
       default:
         throw std::runtime_error(std::to_string(idx)
-                                 + " isn't a valid axis index for TH1");
+                                 + " is not a valid axis index for TH1");
     }
   }
 
@@ -34,7 +34,7 @@ namespace detail
       case 1: return *hist.GetYaxis();
       default:
         throw std::runtime_error(std::to_string(idx)
-                                 + " isn't a valid axis index for TH2");
+                                 + " is not a valid axis index for TH2");
     }
   }
 
@@ -46,7 +46,7 @@ namespace detail
       case 2: return *hist.GetZaxis();
       default:
         throw std::runtime_error(std::to_string(idx)
-                                 + " isn't a valid axis index for TH3");
+                                 + " is not a valid axis index for TH3");
     }
   }
 
@@ -91,11 +91,11 @@ namespace detail
     dest.SetTitle(src.GetTitle().c_str());
 
     // Propagate axis growability
-    // FIXME: No direct access fo fCanGrow in RAxisBase yet!
+    // FIXME: No direct access fo fCanGrow in RAxisBase yet...
     dest.SetCanExtend((src.GetNOverflowBins() == 0));
 
     // Propagate whether this is a labeled axis
-    // FIXME: Can't support labeled axes yet because RAxisBase does not even
+    // FIXME: Can't support labeled axes yet because RAxisBase does not
     //        provide a way to check if an axis is labeled...
     dest.SetNoAlphanumeric(true);
   }
