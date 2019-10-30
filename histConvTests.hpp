@@ -21,7 +21,7 @@ template <int DIMS,
           template <int D_, class P_> class... STAT>
 void test_conversion(RNG& rng,
                      std::array<RExp::RAxisConfig, DIMS>&& axis_configs) {
-  // ROOT 6 is picky about unique names
+  // ROOT 6 wants unique histogram names
   static std::atomic<size_t> ctr = 0;
   std::string name = "Hist" + std::to_string(ctr);
   ctr.fetch_add(1, std::memory_order_relaxed);
@@ -34,7 +34,7 @@ void test_conversion(RNG& rng,
 
   // FIXME: Factor out some of this for the sake of readability and fast builds
 
-  // Determine which range the axes of that histogram span (from Fill's PoV)
+  // Determine which coordinate range the test data should span
   using CoordArray = typename Source::CoordArray_t;
   using Weight = typename Source::Weight_t;
   std::pair<CoordArray, CoordArray> coord_range;
@@ -143,11 +143,15 @@ void test_conversion(RNG& rng,
     // s[2]  = sumwx      s[3]  = sumwx2
     //
     // NOTE: sumwx-style stats do not yield the same results in ROOT 6 and
-    //       ROOT 7 when over- and underflow bins are filled up, and that does
-    //       not seem fixable since it originates from different bin coordinate
-    //       conventions. Those stats are anyway somewhat meaningless in that
-    //       situation, accounting for overflow bins is just a debugging aid.
-    //       Therefore, I will not test those stats when exercising those bins.
+    //       ROOT 7 when over- and underflow bins are filled up.
+    //
+    //       This does not seem fixable at the converter level, since ROOT 7
+    //       always includes overflow bins in statistics, and ROOT 6 and ROOT 7
+    //       disagree on what the coordinates of overflow bins are.
+    //
+    //       Given that those stats are somewhat meaningless in that situation
+    //       anyway, I don't think achieving exact reproducibility should be a
+    //       goal here, so I won't test for it.
     //
     const double sumw = sum_over_bins([](const auto& bin) -> double {
       return bin.GetStat().GetContent();
@@ -223,15 +227,15 @@ void test_conversion(RNG& rng,
     //          to check that the over- and underflow bins of growable ROOT 6
     //          histograms are zeroed... and to use local bin coordinates.
     //        - ROOT 7 multi-dimensional histograms seem to enumerate local bin
-    //          coordinates in a different order, but the logic is weird enough
-    //          that it could be a bug (e.g. local coordinates are given in
-    //          reverse order wrt histogram constructor axis configurations).
+    //          coordinates in a different order, but the logic is strange
+    //          enough that it could be a bug (e.g. local coordinates are given
+    //          in reverse order wrt histogram constructor axis configurations).
     //
     //        Need to think about how to best handle this without sacrificing
     //        performance in the common case.
     //
     //        Having a way to get local bin coordinates while iterating a ROOT 7
-    //        histogram could be helpful.
+    //        histogram could be helpful here...
     //
     size_t root6_bin = 0;
     for (const auto& bin: src) {

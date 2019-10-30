@@ -24,11 +24,19 @@ int main() {
     // FIXME: Add a way to test compilation failures
     /* test_conversion<1, size_t>(rng, {gen_axis_config(rng)}); */
 
-    // FIXME: Higher-dimensional histograms are broken for now. I need to have
-    //        a chat with the ROOT team to figure out if they _really_ think
-    //        that providing local coordinates in an order that's reversed wrt
-    //        the one specified at axis creation is a good idea in order to
-    //        determine how to best fix that.
+    // FIXME: Higher-dimensional histograms are broken for now, due to a binning
+    //        convention mismatch.
+    //
+    //        It's not clear to me if the current ROOT 7 multi-dimensional
+    //        histogram binning convention is correct, as it has some strange
+    //        properties such as providing local bin coordinates in an order
+    //        that is reversed wrt the order in which axis configurations are
+    //        passed to the RHist constructor.
+    //
+    //        Therefore, I should have a chat with the ROOT team to understand
+    //        what kind of binning convention they actually intend to have for
+    //        multi-dimensional RHist before fixing this bug.
+    //
     /* // Try it with a 2D histogram
     test_conversion<2, char>(rng, {gen_axis_config(rng), gen_axis_config(rng)});
 

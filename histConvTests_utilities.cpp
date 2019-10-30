@@ -28,7 +28,8 @@ RExp::RAxisConfig gen_axis_config(RNG& rng) {
   auto gen_axis_title = [](RNG& rng) -> std::string {
     return "Axis " + std::to_string(rng());
   };
-  // FIXME: Re-enable labels once they're less broken in ROOT
+  // FIXME: Cannot test labeled axes yet as the RHist constructor will blow up
+  //        when we try to use them.
   /* auto gen_axis_label = [](RNG& rng) -> std::string {
     return std::to_string(rng());
   }; */
@@ -44,10 +45,11 @@ RExp::RAxisConfig gen_axis_config(RNG& rng) {
                             AXIS_LIMIT_RANGE.first,
                             AXIS_LIMIT_RANGE.second);
     double max = gen_double(rng, min, AXIS_LIMIT_RANGE.second);
-    bool is_growable = false; /* FIXME: should call gen_bool(rng), but growable
-                                        axes are broken at the ROOT level */
 
-    // FIXME: Re-enable growable axes once ROOT fixes them.
+    // FIXME: Should call gen_bool(rng), but growable axes cannot be used in
+    //        ROOT 7 yet as the axis growth function is not even implemented
+    //        yet... re-enable this once ROOT 7 has working growable axes.
+    bool is_growable = false;
     /* if (is_growable) {
       if (has_title) {
         return RExp::RAxisConfig(gen_axis_title(rng),
@@ -93,7 +95,7 @@ RExp::RAxisConfig gen_axis_config(RNG& rng) {
     }
   }
 
-  // Labeled axis (FIXME: Currently broken at the ROOT level)
+  // Labeled axis (FIXME: Re-enable once they work at the ROOT 7 level)
   /* case 2: {
     std::vector<std::string> labels;
     for (int i = 0; i < num_bins; ++i) {

@@ -20,7 +20,7 @@ class TAxis;
 // Source of pseudorandom numbers for randomized testing
 using RNG = std::mt19937_64;
 
-// RNG range, should add +1 to avoid bias but that can lead to overflow...
+// RNG range. Should add +1 to avoid bias but that can lead to overflow...
 constexpr auto RNG_CHOICE = RNG::max() - RNG::min();
 
 // Parameter space being explored by the tests
