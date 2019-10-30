@@ -2,7 +2,7 @@
 CC:=g++
 CXX:=g++
 LTOFLAGS:=-flto=$(shell nproc --all)
-CXXFLAGS:=-O3 -march=native -std=c++17 $(LTOFLAGS)
+CXXFLAGS:=-O3 -march=native -std=c++17 -Wall -Wextra -pedantic $(LTOFLAGS)
 LDFLAGS:=$(LTOFLAGS)
 LDLIBS:=-pthread -lCore -lHist
 

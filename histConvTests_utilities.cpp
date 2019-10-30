@@ -46,11 +46,11 @@ RExp::RAxisConfig gen_axis_config(RNG& rng) {
                             AXIS_LIMIT_RANGE.second);
     double max = gen_double(rng, min, AXIS_LIMIT_RANGE.second);
 
-    // FIXME: Should call gen_bool(rng), but growable axes cannot be used in
-    //        ROOT 7 yet as the axis growth function is not even implemented
-    //        yet... re-enable this once ROOT 7 has working growable axes.
-    bool is_growable = false;
-    /* if (is_growable) {
+    // FIXME: Growable axes cannot be used in ROOT 7 yet as the axis growth
+    //        function is not even implemented yet... re-enable this once ROOT 7
+    //        has reasonably feature-complete working growable axes.
+    /* bool is_growable = gen_bool(rng);
+    if (is_growable) {
       if (has_title) {
         return RExp::RAxisConfig(gen_axis_title(rng),
                                  RExp::RAxisConfig::Grow,
@@ -243,8 +243,9 @@ void check_axis_config(TAxis& axis, const RExp::RAxisConfig& config) {
   if (is_irregular) {
     const auto& bins = *axis.GetXbins();
     const auto& expected_bins = config.GetBinBorders();
-    ASSERT_EQ(bins.fN, expected_bins.size(), "Wrong number of bin borders");
-    for (size_t i = 0; i < bins.fN; ++i) {
+    ASSERT_EQ(size_t(bins.fN), expected_bins.size(),
+              "Wrong number of bin borders");
+    for (int i = 0; i < bins.fN; ++i) {
       ASSERT_EQ(bins[i], expected_bins[i], "Wrong bin border values");
     }
   }
