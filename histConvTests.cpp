@@ -6,7 +6,7 @@
 int main() {
   // Conversion of null ROOT 7 histograms should fail with a clear exception
   assert_runtime_error([]() { into_root6_hist(RExp::RHist<1, char>(), "bad"); },
-                       "Converting a null histograms should fail");
+                       "Converting a null histogram should fail");
 
   // For the most part, we'll use reproducible but pseudo-random test data...
   RNG rng;
