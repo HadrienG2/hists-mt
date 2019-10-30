@@ -15,24 +15,15 @@
 #include "histConv.hpp.dcl"
 
 
-// Run tests for a certain ROOT 7 histogram type and axis configuration
-template <int DIMS,
-          class PRECISION,
-          template <int D_, class P_> class... STAT>
-void test_conversion(RNG& rng,
-                     std::array<RExp::RAxisConfig, DIMS>&& axis_configs) {
-  // Generate a ROOT 7 histogram
-  const std::string title = gen_hist_title(rng);
-  using Source = RExp::RHist<DIMS, PRECISION, STAT...>;
-  Source src(title, axis_configs);
-
-  // FIXME: Factor out some of this for the sake of readability and fast builds
-
+template <int DIMS, typename Weight>
+TestData<DIMS, Weight>::TestData(
+  RNG& rng,
+  const std::array<RExp::RAxisConfig, DIMS>& axis_configs
+)
+  : exercizes_overflow{gen_bool(rng)}
+{
   // Determine which coordinate range the test data should span
-  using CoordArray = typename Source::CoordArray_t;
-  using Weight = typename Source::Weight_t;
   std::pair<CoordArray, CoordArray> coord_range;
-  const bool exercise_overflow_bins = gen_bool(rng);
   for (size_t axis_idx = 0; axis_idx < DIMS; ++axis_idx) {
     const auto& axis_config = axis_configs[axis_idx];
     switch (axis_config.GetKind())
@@ -43,7 +34,7 @@ void test_conversion(RNG& rng,
       const auto& bin_borders = axis_config.GetBinBorders();
       coord_range.first[axis_idx] = bin_borders[0];
       coord_range.second[axis_idx] = bin_borders[bin_borders.size()-1];
-      if (exercise_overflow_bins) {
+      if (this->exercizes_overflow) {
         const double bin_border_delta = bin_borders[1] - bin_borders[0];
         coord_range.first[axis_idx] -= bin_border_delta;
         coord_range.second[axis_idx] += bin_border_delta;
@@ -55,7 +46,7 @@ void test_conversion(RNG& rng,
       const auto& bin_labels = axis_config.GetBinLabels();
       coord_range.first[axis_idx] = 0;
       coord_range.second[axis_idx] = bin_labels.size();
-      if (exercise_overflow_bins) {
+      if (this->exercizes_overflow) {
         coord_range.first[axis_idx] -= 1;
         coord_range.second[axis_idx] += 1;
       }
@@ -68,13 +59,13 @@ void test_conversion(RNG& rng,
   }
 
   // Generate some test data to fill the ROOT 7 histogram with
-  size_t num_data_points =
+  const size_t num_data_points =
     static_cast<size_t>(gen_double(rng,
                                    NUM_DATA_POINTS_RANGE.first,
                                    NUM_DATA_POINTS_RANGE.second));
+  this->coords.reserve(num_data_points);
   const bool variable_weight = gen_bool(rng);
-  std::vector<CoordArray> coords;
-  std::vector<Weight> weights;
+  if (variable_weight) this->weights.reserve(num_data_points);
   for (size_t data_idx = 0; data_idx < num_data_points; ++data_idx) {
     CoordArray coord;
     for (size_t axis_idx = 0; axis_idx < DIMS; ++axis_idx) {
@@ -82,17 +73,69 @@ void test_conversion(RNG& rng,
                                    coord_range.first[axis_idx],
                                    coord_range.second[axis_idx]);
     }
-    coords.push_back(coord);
-    if (variable_weight) weights.push_back(gen_double(rng,
-                                                      WEIGHT_RANGE.first,
-                                                      WEIGHT_RANGE.second));
+    this->coords.push_back(coord);
+
+    if (variable_weight) {
+      this->weights.push_back(gen_double(rng,
+                                         WEIGHT_RANGE.first,
+                                         WEIGHT_RANGE.second));
+    }
+  }
+}
+
+
+template <int DIMS, typename Weight>
+void TestData<DIMS, Weight>::print() const {
+  // How many test data points? Weighted or unweighted?
+  std::cout << this->coords.size() << " data points of "
+            << (this->weights.empty() ? "unity" : "variable") << " weight";
+
+  // Are we exercizing overflow bins with out of range data?
+  if (this->exercizes_overflow) {
+    std::cout << ", exercizing under- and overflow bins";
   }
 
-  // Fill the ROOT 7 histogram with the test data
-  if (variable_weight) {
-    src.FillN(coords, weights);
+  // This is how we print a single data point...
+  auto print_point = [&](size_t point) {
+    // First the coordinates
+    std::cout << "[ ";
+    for (size_t dim = 0; dim < DIMS-1; ++dim) {
+      std::cout << this->coords[point][dim] << ", ";
+    }
+    std::cout << this->coords[point][DIMS-1] << " ]";
+
+    // Then the weight, if not unity
+    if (this->weights.empty()) { return; }
+    std::cout << " @ " << double(this->weights[point]);
+  };
+
+  // ...now let's print all of them.
+  std::cout << ": { ";
+  for (size_t point = 0; point < this->coords.size()-1; ++point) {
+    print_point(point);
+    std::cout << "; ";
+  }
+  print_point(this->coords.size()-1);
+  std::cout << " }";
+}
+
+
+template <int DIMS,
+          class PRECISION,
+          template <int D_, class P_> class... STAT>
+void test_conversion(RNG& rng,
+                     std::array<RExp::RAxisConfig, DIMS>&& axis_configs) {
+  // Generate a ROOT 7 histogram
+  const std::string title = gen_hist_title(rng);
+  using Source = RExp::RHist<DIMS, PRECISION, STAT...>;
+  Source src(title, axis_configs);
+
+  // Fill the ROOT 7 histogram with some test data
+  const TestData<DIMS, typename Source::Weight_t> data(rng, axis_configs);
+  if (!data.weights.empty()) {
+    src.FillN(data.coords, data.weights);
   } else {
-    src.FillN(coords);
+    src.FillN(data.coords);
   }
 
   // Convert the ROOT 7 histogram to ROOT 6 format and check the output
@@ -101,6 +144,9 @@ void test_conversion(RNG& rng,
     // Perform the conversion
     const std::string name = gen_unique_hist_name();
     auto dest = into_root6_hist(src, name.c_str());
+
+    // FIXME: Try to extract some of this out of this function to improve
+    //        clarity and increase build performance
 
     // Check general output histogram configuration
     const auto& src_impl = *src.GetImpl();
@@ -123,7 +169,7 @@ void test_conversion(RNG& rng,
     if constexpr (DIMS == 3) check_axis_config(*dest.GetZaxis(), axis_configs[2]);
 
     // Check global histogram stats
-    ASSERT_EQ(coords.size(), dest.GetEntries(), "Invalid entry count");
+    ASSERT_EQ(data.coords.size(), dest.GetEntries(), "Invalid entry count");
     std::array<Double_t, TH1::kNstat> stats;
     dest.GetStats(stats.data());
     auto sum_over_bins = [&src](auto&& bin_contribution) -> double {
@@ -157,7 +203,7 @@ void test_conversion(RNG& rng,
       return err * err;
     });
     ASSERT_CLOSE(sumw2, stats[1], 1e-6, "Sum of squared error is incorrect");
-    if (!exercise_overflow_bins) {
+    if (!data.exercizes_overflow) {
       const double sumwx = sum_over_bins([](const auto& bin) -> double {
         return bin.GetStat().GetContent() * bin.GetCenter()[0];
       });
@@ -170,7 +216,7 @@ void test_conversion(RNG& rng,
     }
     // In TH2+, stats also contains...
     // s[4]  = sumwy      s[5]  = sumwy2   s[6]  = sumwxy
-    if ((DIMS >= 2) && (!exercise_overflow_bins)) {
+    if ((DIMS >= 2) && (!data.exercizes_overflow)) {
       const double sumwy = sum_over_bins([](const auto& bin) -> double {
         return bin.GetStat().GetContent() * bin.GetCenter()[1];
       });
@@ -189,7 +235,7 @@ void test_conversion(RNG& rng,
     }
     // In TH3, stats also contains...
     // s[7]  = sumwz      s[8]  = sumwz2   s[9]  = sumwxz   s[10]  = sumwyz
-    if ((DIMS == 3) && (!exercise_overflow_bins)) {
+    if ((DIMS == 3) && (!data.exercizes_overflow)) {
       const double sumwz = sum_over_bins([](const auto& bin) -> double {
         return bin.GetStat().GetContent() * bin.GetCenter()[2];
       });
@@ -267,28 +313,9 @@ void test_conversion(RNG& rng,
     }
 
     // Print coordinates and weights
-    std::cout << "* Histogram was filled with "
-              << coords.size() << " data points of "
-              << (variable_weight ? "variable" : "unity") << " weight";
-    if (exercise_overflow_bins) {
-      std::cout << ", exercizing under- and overflow bins";
-    }
-    std::cout << ": { ";
-    auto print_point = [&](size_t point) {
-      std::cout << "[ ";
-      for (size_t dim = 0; dim < DIMS-1; ++dim) {
-        std::cout << coords[point][dim] << ", ";
-      }
-      std::cout << coords[point][DIMS-1] << " ]";
-      if (!variable_weight) { return; }
-      std::cout << " @ " << double(weights[point]);
-    };
-    for (size_t point = 0; point < coords.size()-1; ++point) {
-      print_point(point);
-      std::cout << "; ";
-    }
-    print_point(coords.size()-1);
-    std::cout << " }" << std::endl;
+    std::cout << "* Histogram was filled with ";
+    data.print();
+    std::cout << std::endl;
 
     // Time to die...
     std::cout << std::endl;

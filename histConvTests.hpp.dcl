@@ -9,6 +9,7 @@
 #include <utility>
 
 #include "ROOT/RAxis.hxx"
+#include "ROOT/RHistUtils.hxx"
 
 
 // === FORWARD DECLARATIONS ===
@@ -57,6 +58,28 @@ std::string gen_unique_hist_name();
 
 // Generate a histogram title
 std::string gen_hist_title(RNG& rng);
+
+// Test data for filling up ROOT 7 histograms
+template <int DIMS, typename Weight>
+struct TestData {
+  using CoordArray = RExp::Hist::RCoordArray<DIMS>;
+
+  // Histogram coordinates to be filled
+  std::vector<CoordArray> coords;
+
+  // Weights associated with each data point, or empty vector if test data has
+  // unity weight (i.e. should be filled using RHist::FillN(coords))
+  std::vector<Weight> weights;
+
+  // Whether "coords" contains out-of-range data for testing overflow bins
+  bool exercizes_overflow;
+
+  // Constructor that generates the test data
+  TestData(RNG& rng, const std::array<RExp::RAxisConfig, DIMS>& axis_configs);
+
+  // Print the test data as a (big) one-liner
+  void print() const;
+};
 
 // Print out axis configurations from a histogram
 // (split from test_conversion to reduce template code bloat)
