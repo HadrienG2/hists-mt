@@ -38,23 +38,32 @@ int main() {
     //        multi-dimensional RHist before fixing this bug.
     //
     /* // Try it with a 2D histogram
-    test_conversion<2, char>(rng, {gen_axis_config(rng), gen_axis_config(rng)});
+    test_conversion<2, char>(rng, {gen_axis_config(rng), gen_axis_config(rng)}); */
 
-    // Try it with a 3D histogram, using a homogeneous axis config
+    // Try it with a 3D histogram
     auto axis1 = gen_axis_config(rng);
     auto axis2 = gen_axis_config(rng);
-    while (axis2.GetKind() != axis1.GetKind()) axis2 = gen_axis_config(rng);
     auto axis3 = gen_axis_config(rng);
-    while (axis3.GetKind() != axis1.GetKind()) axis3 = gen_axis_config(rng);
-    test_conversion<3, char>(rng, {axis1, axis2, axis3}); */
-
-    // This will fail at run-time after a few iterations: TH3 currently does not
-    // support inhomogeneous axis configs.
-    // FIXME: Add a way to test runtime failures
-    /* test_conversion<3, char>(rng,
-                                {gen_axis_config(rng),
-                                 gen_axis_config(rng),
-                                 gen_axis_config(rng)}); */
+    bool homogeneous_config = (axis1.GetKind() == axis2.GetKind())
+                                && (axis2.GetKind() == axis3.GetKind());
+    if (homogeneous_config) {
+      // FIXME: 3D histograms with homogeneous axis configuration should work,
+      //        but are currently disabled for the reason described above.
+      /* test_conversion<3, char>(rng, {axis1, axis2, axis3}); */
+    } else {
+      // 3D histogram with inhomogeneous axis configuration are currently
+      // unsupported because TH3 does not provide a suitable constructor
+      RExp::RHist<3, char> bad{{axis1, axis2, axis3}};
+      bool failed = false;
+      try {
+        into_root6_hist(bad, "nope");
+      } catch(const std::runtime_error&) {
+        failed = true;
+      }
+      if (!failed) {
+        throw std::runtime_error("TH3 with inhomogeneous axis should fail");
+      }
+    }
   }
   return 0;
 }
