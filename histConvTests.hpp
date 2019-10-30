@@ -214,24 +214,37 @@ void test_conversion(RNG& rng,
       ASSERT_CLOSE(sumwyz, stats[10], 1e-6, "Sum of weight * y * z is incorrect");
     }
 
-    // TODO: Check per-bin stats, namely
-    // - Per-bin histogram stats (not sure what's the most convenient way...)
-    // - Per-bin SumW2 (if recorded, can be queried via GetSumw2)
-    /* Here's a reminder of some useful TH1 queries:
-
-    // Used to check other properties only
-    virtual Int_t    GetBin(Int_t binx, Int_t biny=0, Int_t binz=0) const;
-
-    virtual Double_t GetBinContent(Int_t bin) const;
-    virtual Double_t GetBinContent(Int_t bin, Int_t) const { return GetBinContent(bin); }
-    virtual Double_t GetBinContent(Int_t bin, Int_t, Int_t) const { return GetBinContent(bin); }
-
-    virtual Double_t GetBinError(Int_t bin) const;
-    virtual Double_t GetBinError(Int_t binx, Int_t biny) const { return GetBinError(GetBin(binx, biny)); } // for 2D histograms only
-    virtual Double_t GetBinError(Int_t binx, Int_t biny, Int_t binz) const { return GetBinError(GetBin(binx, biny, binz)); } // for 3D histograms only
-
-    virtual const TArrayD *GetSumw2() const {return &fSumw2;}
-    virtual Int_t    GetSumw2N() const {return fSumw2.fN;}  */
+    // FIXME: Like the current converter code, this assumes that ROOT 6 and
+    //        ROOT 7 histograms follow the same binning conventions. However,
+    //        there are already two known cases of deviation:
+    //
+    //        - ROOT 6 histograms always have overflow bins, whereas growable
+    //          ROOT 7 histograms don't have them. IIUC, this means that we need
+    //          to check that the over- and underflow bins of growable ROOT 6
+    //          histograms are zeroed... and to use local bin coordinates.
+    //        - ROOT 7 multi-dimensional histograms seem to enumerate local bin
+    //          coordinates in a different order, but the logic is weird enough
+    //          that it could be a bug (e.g. local coordinates are given in
+    //          reverse order wrt histogram constructor axis configurations).
+    //
+    //        Need to think about how to best handle this without sacrificing
+    //        performance in the common case.
+    //
+    //        Having a way to get local bin coordinates while iterating a ROOT 7
+    //        histogram could be helpful.
+    //
+    size_t root6_bin = 0;
+    for (const auto& bin: src) {
+      ASSERT_CLOSE(bin.GetStat().GetContent(),
+                   dest.GetBinContent(root6_bin),
+                   1e-6,
+                   "Histogram bin content does not match");
+      ASSERT_CLOSE(bin.GetStat().GetUncertainty(),
+                   dest.GetBinError(root6_bin),
+                   1e-6,
+                   "Histogram bin error does not match");
+      ++root6_bin;
+    }
   }
   catch (const std::runtime_error& e)
   {
