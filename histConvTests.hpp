@@ -23,8 +23,11 @@ void test_conversion(RNG& rng,
                      std::array<RExp::RAxisConfig, DIMS>&& axis_configs) {
   // ROOT 6 wants unique histogram names
   static std::atomic<size_t> ctr = 0;
-  std::string name = "Hist" + std::to_string(ctr);
-  ctr.fetch_add(1, std::memory_order_relaxed);
+  std::string name = "Histogram" + std::to_string(ctr);
+  size_t last_ctr = ctr.fetch_add(1, std::memory_order_relaxed);
+  if (last_ctr == std::numeric_limits<size_t>::max()) {
+    throw std::runtime_error("Unique ROOT 6 histogram name pool was exhausted");
+  }
 
   // Generate a ROOT 7 histogram, testing both empty and semicolon-ridden titles
   std::string title = "";

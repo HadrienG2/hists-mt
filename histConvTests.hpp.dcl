@@ -20,9 +20,6 @@ class TAxis;
 // Source of pseudorandom numbers for randomized testing
 using RNG = std::mt19937_64;
 
-// RNG range. Should add +1 to avoid bias but that can lead to overflow...
-constexpr auto RNG_CHOICE = RNG::max() - RNG::min();
-
 // Parameter space being explored by the tests
 // NOTE: Need max(data points) * max(weight) <= 127 to test char histograms
 constexpr std::pair<int, int> NUM_BINS_RANGE{1, 10};
@@ -38,6 +35,9 @@ constexpr size_t NUM_TEST_RUNS = 10000;
 
 // Typing this gets old quickly
 namespace RExp = ROOT::Experimental;
+
+// RNG range. Should add +1 to avoid bias but that can lead to overflow...
+constexpr auto RNG_CHOICE = RNG::max() - RNG::min();
 
 // Generate a random boolean
 inline bool gen_bool(RNG& rng) {
