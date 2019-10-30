@@ -42,9 +42,9 @@ public:
     // to implement correctly. We don't care about the tiny bias that ensues.
     //
     RExp::Hist::RCoordArray<1> gen() {
-        static const float a = (AXIS_RANGE.second - AXIS_RANGE.first)
-                                   / (RNG::max() - RNG::min());
-        static const float b = AXIS_RANGE.first;
+        static constexpr float a = (AXIS_RANGE.second - AXIS_RANGE.first)
+                                     / (RNG::max() - RNG::min());
+        static constexpr float b = AXIS_RANGE.first;
         return { a * m_gen() + b };
     }
 
@@ -152,6 +152,8 @@ void batch_benches()
         RExp::RHistConcurrentFillManager<Hist1D, BATCH_SIZE> conc_hist{hist};
 
         // Only check the host CPU's thread count once
+        // FIXME: local_iters will not evenly divide NUM_ITERS if the host
+        //        computer's CPU thread count is not a power of 2
         static const auto num_threads = std::thread::hardware_concurrency();
         static const auto local_iters = NUM_ITERS / num_threads;
 
@@ -171,7 +173,7 @@ void batch_benches()
             barrier.fetch_sub(1, std::memory_order_release);
             while (barrier.load(std::memory_order_acquire)) {}
 
-            // Fill the histogram, then let it auto-flush
+            // Fill the histogram, then let it auto-flush via the destructor
             for ( size_t i = 0; i < local_iters; ++i ) {
                 conc_hist_filler.Fill(local_rng.gen());
             }
@@ -196,9 +198,10 @@ void batch_benches()
 
     // TODO: Compare with other synchronization strategies
     //       - Fill thread-local histograms, merge at the end
-    //       - Use std::atomic<BinData> as bin data type
+    //       - Use std::atomic<BinData> as the bin data type
     //       - Use a specialized variant of std::atomic that performes relaxed
-    //         atomic operations instead of sequentially consistent ones.
+    //         atomic operations instead of sequentially consistent ones, to
+    //         avoid unnecessary memory barrier overhead.
     //
     //       Will probably want to factor out redundant parts from the MT test
     //       harness above when that time comes.
@@ -217,7 +220,7 @@ int main()
 
     // Unoptimized sequential Fill() pattern
     //
-    // Pretty slow, as ROOT histograms have quite a few layers of indirection...
+    // Pretty slow, as it goes through a layer of pImpl indirection...
     //
     bench("Scalar Fill()", [&](Hist1D&& hist,
                                RandomCoords&& rng) -> Hist1D {
@@ -247,10 +250,6 @@ int main()
     batch_benches<16384>();
     batch_benches<32768>();
     batch_benches<65536>();
-
-    // TODO: Besides benchmarking & perf studies, in a different program...
-    //       - Convert final histogram to ROOT 6 format
-    //       - Write ROOT 6 histogram to file as a proof of concept.
 
     return 0;
 }
