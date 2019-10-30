@@ -5,7 +5,6 @@
 #include <atomic>
 #include <cxxabi.h>
 #include <iostream>
-#include <string>
 #include <typeinfo>
 
 #include "ROOT/RHist.hxx"
@@ -120,6 +119,34 @@ void TestData<DIMS, Weight>::print() const {
 }
 
 
+template <int DIMS>
+void check_hist_config(
+  const RExp::Detail::RHistImplPrecisionAgnosticBase<DIMS>& src_impl,
+  const std::array<RExp::RAxisConfig, DIMS>& axis_configs,
+  const std::string& name,
+  TH1& dest
+) {
+  // Check non-axis histogram configuration
+  ASSERT_EQ(name, dest.GetName(), "Incorrect output histogram name");
+  ASSERT_EQ(src_impl.GetTitle(), dest.GetTitle(),
+            "Incorrect output histogram title");
+  ASSERT_EQ(DIMS, dest.GetDimension(),"Incorrect output histogram dimension");
+  ASSERT_EQ(nullptr, dest.GetBuffer(),
+            "Output histogram shouldn't be buffered");
+  ASSERT_EQ(TH1::EStatOverflows::kConsider, dest.GetStatOverflows(),
+            "Output histogram statistics should include overflow bins");
+  ASSERT_EQ(TH1::EBinErrorOpt::kNormal, dest.GetBinErrorOption(),
+            "Output histogram bin errors should use normal approximation");
+  ASSERT_EQ(0, dest.GetNormFactor(),
+            "Output histogram shouldn't have a normalization factor");
+
+  // Check axis configuration
+  check_axis_config(*dest.GetXaxis(), axis_configs[0]);
+  if constexpr (DIMS >= 2) check_axis_config(*dest.GetYaxis(), axis_configs[1]);
+  if constexpr (DIMS == 3) check_axis_config(*dest.GetZaxis(), axis_configs[2]);
+}
+
+
 template <int DIMS,
           class PRECISION,
           template <int D_, class P_> class... STAT>
@@ -145,28 +172,11 @@ void test_conversion(RNG& rng,
     const std::string name = gen_unique_hist_name();
     auto dest = into_root6_hist(src, name.c_str());
 
+    // Check the output histogram is configured like the input one
+    check_hist_config<DIMS>(*src.GetImpl(), axis_configs, name, dest);
+
     // FIXME: Try to extract some of this out of this function to improve
     //        clarity and increase build performance
-
-    // Check histogram configuration
-    const auto& src_impl = *src.GetImpl();
-    ASSERT_EQ(name, dest.GetName(), "Incorrect output histogram name");
-    ASSERT_EQ(src_impl.GetTitle(), dest.GetTitle(),
-              "Incorrect output histogram title");
-    ASSERT_EQ(DIMS, dest.GetDimension(),"Incorrect output histogram dimension");
-    ASSERT_EQ(nullptr, dest.GetBuffer(),
-              "Output histogram shouldn't be buffered");
-    ASSERT_EQ(TH1::EStatOverflows::kConsider, dest.GetStatOverflows(),
-              "Output histogram statistics should include overflow bins");
-    ASSERT_EQ(TH1::EBinErrorOpt::kNormal, dest.GetBinErrorOption(),
-              "Output histogram bin errors should use normal approximation");
-    ASSERT_EQ(0, dest.GetNormFactor(),
-              "Output histogram shouldn't have a normalization factor");
-
-    // Check axis configuration
-    check_axis_config(*dest.GetXaxis(), axis_configs[0]);
-    if constexpr (DIMS >= 2) check_axis_config(*dest.GetYaxis(), axis_configs[1]);
-    if constexpr (DIMS == 3) check_axis_config(*dest.GetZaxis(), axis_configs[2]);
 
     // Check global histogram stats
     ASSERT_EQ(data.coords.size(), dest.GetEntries(), "Invalid entry count");
