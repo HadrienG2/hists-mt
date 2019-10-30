@@ -4,6 +4,10 @@
 
 
 int main() {
+  // Conversion of null ROOT 7 histograms should fail with a clear exception
+  assert_runtime_error([]() { into_root6_hist(RExp::RHist<1, char>(), "bad"); },
+                       "Converting a null histograms should fail");
+
   // For the most part, we'll use reproducible but pseudo-random test data...
   RNG rng;
   for (size_t i = 0; i < NUM_TEST_RUNS; ++i) {
@@ -54,15 +58,10 @@ int main() {
       // 3D histogram with inhomogeneous axis configuration are currently
       // unsupported because TH3 does not provide a suitable constructor
       RExp::RHist<3, char> bad{{axis1, axis2, axis3}};
-      bool failed = false;
-      try {
-        into_root6_hist(bad, "nope");
-      } catch(const std::runtime_error&) {
-        failed = true;
-      }
-      if (!failed) {
-        throw std::runtime_error("TH3 with inhomogeneous axis should fail");
-      }
+      assert_runtime_error(
+        [&] { into_root6_hist(bad, "nope"); },
+        "Converting a TH3 with an inhomogeneous axis config should fail"
+      );
     }
   }
   return 0;

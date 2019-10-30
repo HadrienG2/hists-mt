@@ -212,6 +212,20 @@ void print_axis_config(const RExp::RAxisConfig& axis_config) {
 }
 
 
+void assert_runtime_error(std::function<void()>&& operation,
+                          std::string&& failure_message) {
+  bool failed = false;
+  try {
+    operation();
+  } catch(const std::runtime_error&) {
+    failed = true;
+  }
+  if (!failed) {
+    throw std::runtime_error(failure_message);
+  }
+}
+
+
 void check_axis_config(TAxis& axis, const RExp::RAxisConfig& config) {
   // Checks which are common to all axis configurations
   ASSERT_EQ(config.GetTitle(), axis.GetTitle(),

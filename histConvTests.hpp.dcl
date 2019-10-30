@@ -140,3 +140,7 @@ void check_hist_data(const Root7Hist& src,
 // Check that a pointer is not null, else throw runtime error
 #define ASSERT_NOT_NULL(x, failure_message)  \
   if (nullptr == (x)) { throw std::runtime_error((failure_message)); }
+
+// Check that a certain operation triggers an std::runtime_error exception
+void assert_runtime_error(std::function<void()>&& operation,
+                          std::string&& failure_message);
