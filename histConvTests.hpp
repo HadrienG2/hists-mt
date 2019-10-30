@@ -267,11 +267,11 @@ void test_conversion(RNG& rng,
     }
 
     // Print coordinates and weights
-    std::cout << "* Histogram was filled with the following "
+    std::cout << "* Histogram was filled with "
               << coords.size() << " data points of "
               << (variable_weight ? "variable" : "unity") << " weight";
     if (exercise_overflow_bins) {
-      std::cout << ", some of which exercized under- and overflow bins";
+      std::cout << ", exercizing under- and overflow bins";
     }
     std::cout << ": { ";
     auto print_point = [&](size_t point) {
