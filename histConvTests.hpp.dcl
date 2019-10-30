@@ -52,6 +52,12 @@ inline double gen_double(RNG& rng, double min, double max) {
 // Generate a random ROOT 7 axis configuration
 RExp::RAxisConfig gen_axis_config(RNG& rng);
 
+// Generate a unique histogram name (ROOT 6 specific, used for e.g. ROOT I/O)
+std::string gen_unique_hist_name();
+
+// Generate a histogram title
+std::string gen_hist_title(RNG& rng);
+
 // Print out axis configurations from a histogram
 // (split from test_conversion to reduce template code bloat)
 void print_axis_config(const RExp::RAxisConfig& axis_config);

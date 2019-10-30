@@ -116,6 +116,33 @@ RExp::RAxisConfig gen_axis_config(RNG& rng) {
 }
 
 
+std::string gen_unique_hist_name() {
+  static std::atomic<size_t> ctr = 0;
+
+  size_t last_ctr = ctr.fetch_add(1, std::memory_order_relaxed);
+  std::string name = "Histogram" + std::to_string(last_ctr);
+  if (last_ctr == std::numeric_limits<size_t>::max()) {
+    throw std::runtime_error("Unique ROOT 6 histogram name pool was exhausted");
+  }
+
+  return name;
+}
+
+
+std::string gen_hist_title(RNG& rng) {
+  switch (rng() % 3) {
+  case 0:
+    return "";
+  case 1:
+    return "Hist title without semicolons";
+  case 2:
+    return "Hist;title;with;semicolons";
+  default:
+    throw std::runtime_error("This switch statement is wrong, please fix it");
+  }
+}
+
+
 void print_axis_config(const RExp::RAxisConfig& axis_config) {
   // Common subset of all axis configuration displays
   auto print_header = [&axis_config]() {

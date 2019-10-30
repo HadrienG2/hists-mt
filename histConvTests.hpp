@@ -21,17 +21,8 @@ template <int DIMS,
           template <int D_, class P_> class... STAT>
 void test_conversion(RNG& rng,
                      std::array<RExp::RAxisConfig, DIMS>&& axis_configs) {
-  // ROOT 6 wants unique histogram names
-  static std::atomic<size_t> ctr = 0;
-  std::string name = "Histogram" + std::to_string(ctr);
-  size_t last_ctr = ctr.fetch_add(1, std::memory_order_relaxed);
-  if (last_ctr == std::numeric_limits<size_t>::max()) {
-    throw std::runtime_error("Unique ROOT 6 histogram name pool was exhausted");
-  }
-
   // Generate a ROOT 7 histogram, testing both empty and semicolon-ridden titles
-  std::string title = "";
-  if (ctr > 0) title += "Hist;title;is;number " + std::to_string(ctr);
+  const std::string title = gen_hist_title(rng);
   using Source = RExp::RHist<DIMS, PRECISION, STAT...>;
   Source src(title, axis_configs);
 
@@ -108,6 +99,7 @@ void test_conversion(RNG& rng,
   try
   {
     // Perform the conversion
+    const std::string name = gen_unique_hist_name();
     auto dest = into_root6_hist(src, name.c_str());
 
     // Check general output histogram configuration
