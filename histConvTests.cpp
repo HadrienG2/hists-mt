@@ -1,5 +1,7 @@
 // Top-level ROOT7 -> ROOT6 histogram conversion test harness
 
+#include <iostream>
+
 #include "histConvTests.hpp"
 
 
@@ -64,5 +66,7 @@ int main() {
       );
     }
   }
+
+  std::cout << "All tests passed successfully!" << std::endl;
   return 0;
 }
