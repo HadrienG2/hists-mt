@@ -125,12 +125,12 @@ template <int DIMS,
           template <int D_, class P_> class... STAT>
 void test_conversion(RNG& rng,
                      std::array<RExp::RAxisConfig, DIMS>&& axis_configs) {
-  // Generate a ROOT 7 histogram
+  // Make a ROOT 7 histogram
   const std::string title = gen_hist_title(rng);
   using Source = RExp::RHist<DIMS, PRECISION, STAT...>;
   Source src(title, axis_configs);
 
-  // Fill the ROOT 7 histogram with some test data
+  // Fill it with some test data
   const TestData<DIMS, typename Source::Weight_t> data(rng, axis_configs);
   if (!data.weights.empty()) {
     src.FillN(data.coords, data.weights);
@@ -148,7 +148,7 @@ void test_conversion(RNG& rng,
     // FIXME: Try to extract some of this out of this function to improve
     //        clarity and increase build performance
 
-    // Check general output histogram configuration
+    // Check histogram configuration
     const auto& src_impl = *src.GetImpl();
     ASSERT_EQ(name, dest.GetName(), "Incorrect output histogram name");
     ASSERT_EQ(src_impl.GetTitle(), dest.GetTitle(),
@@ -312,7 +312,7 @@ void test_conversion(RNG& rng,
       std::cout << std::endl;
     }
 
-    // Print coordinates and weights
+    // Print the test data that the histogram was filled with
     std::cout << "* Histogram was filled with ";
     data.print();
     std::cout << std::endl;
