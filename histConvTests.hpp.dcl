@@ -104,6 +104,10 @@ template <int DIMS,
 void test_conversion(RNG& rng,
                      std::array<RExp::RAxisConfig, DIMS>&& axis_configs);
 
+// Check that a ROOT 6 axis is configured like a ROOT 7 one
+// NOTE: Cannot use const TAxis& because some TAxis accessors are not const...
+void check_axis_config(TAxis& axis, const RExp::RAxisConfig& config);
+
 // Check that a ROOT 6 histogram is configured like a ROOT 7 one
 // NOTE: Cannot use const TH1& because some TAxis accessors are not const...
 template <int DIMS>
@@ -114,9 +118,11 @@ void check_hist_config(
   TH1& dest
 );
 
-// Check that a ROOT 6 axis is configured like a ROOT 7 one
-// NOTE: Cannot use const TAxis& because some TAxis accessors are not const...
-void check_axis_config(TAxis& axis, const RExp::RAxisConfig& config);
+// Check that a ROOT 6 histogram contains the same data as a ROOT 7 one
+template <typename THn, typename Root7Hist>
+void check_hist_data(const Root7Hist& src,
+                     bool has_overflow_data,
+                     const THn& dest);
 
 
 // === TEST ASSERTIONS ===

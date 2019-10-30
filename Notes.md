@@ -179,19 +179,6 @@
       that it may not be the intended behavior.
     * Need to have a chat with the ROOT team before moving forward here.
 
-- I have added a primitive build system and some separate compilation
-    * Direct consequence: you can now run the tests with just `make tests -j8`
-    * Indirect consequence: It might be possible to make the build faster in
-      the long run. But I have the impression that the bulk of the overhead is
-      in ROOT's RHist right now. I think that because...
-        - `histConvTests.cpp` is now as minimal as it can be.
-        - Adding 2D or 3D histogram tests to it mostly adds a couple of
-          `test_conversion` template instantiations...
-        - ...which shouldn't differ much from those for the 1D case, aside
-          from the fact that they instantiate higher-dimensional `RHist`s.
-        - It might be possible to investigate this further with templight, but
-          I'm not sure how well it would cope with ROOT and C++17...
-
 - Now I have some global histogram tests, and that actually yielded an
   interesting observation. sumwx-style stats are different in ROOT 7 and ROOT 6
   histograms, no matter what the ROOT 6 StatOverflows setting is, because...

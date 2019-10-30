@@ -147,6 +147,136 @@ void check_hist_config(
 }
 
 
+template <typename THn, typename Root7Hist>
+void check_hist_data(const Root7Hist& src,
+                     bool has_overflow_data,
+                     const THn& dest)
+{
+  // Check global histogram stats
+  ASSERT_EQ(src.GetEntries(), dest.GetEntries(), "Invalid entry count");
+  std::array<Double_t, TH1::kNstat> stats;
+  dest.GetStats(stats.data());
+  auto sum_over_bins = [&src](auto&& bin_contribution) -> double {
+    double stat = 0.0;
+    for (const auto& bin : src) {
+      stat += bin_contribution(bin);
+    }
+    return stat;
+  };
+  // From the TH1 documentation, stats contains at least...
+  // s[0]  = sumw       s[1]  = sumw2
+  // s[2]  = sumwx      s[3]  = sumwx2
+  //
+  // NOTE: sumwx-style stats do not yield the same results in ROOT 6 and
+  //       ROOT 7 when over- and underflow bins are filled up.
+  //
+  //       This does not seem fixable at the converter level, since ROOT 7
+  //       always includes overflow bins in statistics, and ROOT 6 and ROOT 7
+  //       disagree on what the coordinates of overflow bins are.
+  //
+  //       Given that those stats are somewhat meaningless in that situation
+  //       anyway, I don't think achieving exact reproducibility should be a
+  //       goal here, so I won't test for it.
+  //
+  const double sumw = sum_over_bins([](const auto& bin) -> double {
+    return bin.GetStat().GetContent();
+  });
+  ASSERT_CLOSE(sumw, stats[0], 1e-6, "Sum of weights is incorrect");
+  const double sumw2 = sum_over_bins([](const auto& bin) -> double {
+    const double err = bin.GetStat().GetUncertainty();
+    return err * err;
+  });
+  ASSERT_CLOSE(sumw2, stats[1], 1e-6, "Sum of squared error is incorrect");
+  if (!has_overflow_data) {
+    const double sumwx = sum_over_bins([](const auto& bin) -> double {
+      return bin.GetStat().GetContent() * bin.GetCenter()[0];
+    });
+    ASSERT_CLOSE(sumwx, stats[2], 1e-6, "Sum of weight * x is incorrect");
+    const double sumwx2 = sum_over_bins([](const auto& bin) -> double {
+      const double x = bin.GetCenter()[0];
+      return bin.GetStat().GetContent() * x * x;
+    });
+    ASSERT_CLOSE(sumwx2, stats[3], 1e-6, "Sum of weight * x^2 is incorrect");
+  }
+  // In TH2+, stats also contains...
+  // s[4]  = sumwy      s[5]  = sumwy2   s[6]  = sumwxy
+  if ((src.GetNDim() >= 2) && (!has_overflow_data)) {
+    const double sumwy = sum_over_bins([](const auto& bin) -> double {
+      return bin.GetStat().GetContent() * bin.GetCenter()[1];
+    });
+    ASSERT_CLOSE(sumwy, stats[4], 1e-6, "Sum of weight * y is incorrect");
+    const double sumwy2 = sum_over_bins([](const auto& bin) -> double {
+      double y = bin.GetCenter()[1];
+      return bin.GetStat().GetContent() * y * y;
+    });
+    ASSERT_CLOSE(sumwy2, stats[5], 1e-6, "Sum of weight * y^2 is incorrect");
+    const double sumwxy = sum_over_bins([](const auto& bin) -> double {
+      const double x = bin.GetCenter()[0];
+      const double y = bin.GetCenter()[1];
+      return bin.GetStat().GetContent() * x * y;
+    });
+    ASSERT_CLOSE(sumwxy, stats[6], 1e-6, "Sum of weight * x * y is incorrect");
+  }
+  // In TH3, stats also contains...
+  // s[7]  = sumwz      s[8]  = sumwz2   s[9]  = sumwxz   s[10]  = sumwyz
+  if ((src.GetNDim() == 3) && (!has_overflow_data)) {
+    const double sumwz = sum_over_bins([](const auto& bin) -> double {
+      return bin.GetStat().GetContent() * bin.GetCenter()[2];
+    });
+    ASSERT_CLOSE(sumwz, stats[7], 1e-6, "Sum of weight * z is incorrect");
+    const double sumwz2 = sum_over_bins([](const auto& bin) -> double {
+      double z = bin.GetCenter()[2];
+      return bin.GetStat().GetContent() * z * z;
+    });
+    ASSERT_CLOSE(sumwz2, stats[8], 1e-6, "Sum of weight * z^2 is incorrect");
+    const double sumwxz = sum_over_bins([](const auto& bin) -> double {
+      const double x = bin.GetCenter()[0];
+      const double z = bin.GetCenter()[2];
+      return bin.GetStat().GetContent() * x * z;
+    });
+    ASSERT_CLOSE(sumwxz, stats[9], 1e-6, "Sum of weight * x * z is incorrect");
+    const double sumwyz = sum_over_bins([](const auto& bin) -> double {
+      const double y = bin.GetCenter()[1];
+      const double z = bin.GetCenter()[2];
+      return bin.GetStat().GetContent() * y * z;
+    });
+    ASSERT_CLOSE(sumwyz, stats[10], 1e-6, "Sum of weight * y * z is incorrect");
+  }
+
+  // FIXME: Like the current converter code, this assumes that ROOT 6 and
+  //        ROOT 7 histograms follow the same binning conventions. However,
+  //        there are already two known cases of deviation:
+  //
+  //        - ROOT 6 histograms always have overflow bins, whereas growable
+  //          ROOT 7 histograms don't have them. IIUC, this means that we need
+  //          to check that the over- and underflow bins of growable ROOT 6
+  //          histograms are zeroed... and to use local bin coordinates.
+  //        - ROOT 7 multi-dimensional histograms seem to enumerate local bin
+  //          coordinates in a different order, but the logic is strange
+  //          enough that it could be a bug (e.g. local coordinates are given
+  //          in reverse order wrt histogram constructor axis configurations).
+  //
+  //        Need to think about how to best handle this without sacrificing
+  //        performance in the common case.
+  //
+  //        Having a way to get local bin coordinates while iterating a ROOT 7
+  //        histogram could be helpful here...
+  //
+  size_t root6_bin = 0;
+  for (const auto& bin: src) {
+    ASSERT_CLOSE(bin.GetStat().GetContent(),
+                 dest.GetBinContent(root6_bin),
+                 1e-6,
+                 "Histogram bin content does not match");
+    ASSERT_CLOSE(bin.GetStat().GetUncertainty(),
+                 dest.GetBinError(root6_bin),
+                 1e-6,
+                 "Histogram bin error does not match");
+    ++root6_bin;
+  }
+}
+
+
 template <int DIMS,
           class PRECISION,
           template <int D_, class P_> class... STAT>
@@ -173,133 +303,14 @@ void test_conversion(RNG& rng,
     auto dest = into_root6_hist(src, name.c_str());
 
     // Check the output histogram is configured like the input one
+    //
+    // FIXME: Stop passing in axis_configs once there is a lossless way to get
+    //        the axis configuration of a ROOT 7 histogram.
+    //
     check_hist_config<DIMS>(*src.GetImpl(), axis_configs, name, dest);
 
-    // FIXME: Try to extract some of this out of this function to improve
-    //        clarity and increase build performance
-
-    // Check global histogram stats
-    ASSERT_EQ(data.coords.size(), dest.GetEntries(), "Invalid entry count");
-    std::array<Double_t, TH1::kNstat> stats;
-    dest.GetStats(stats.data());
-    auto sum_over_bins = [&src](auto&& bin_contribution) -> double {
-      double stat = 0.0;
-      for (const auto& bin : src) {
-        stat += bin_contribution(bin);
-      }
-      return stat;
-    };
-    // From the TH1 documentation, stats contains at least...
-    // s[0]  = sumw       s[1]  = sumw2
-    // s[2]  = sumwx      s[3]  = sumwx2
-    //
-    // NOTE: sumwx-style stats do not yield the same results in ROOT 6 and
-    //       ROOT 7 when over- and underflow bins are filled up.
-    //
-    //       This does not seem fixable at the converter level, since ROOT 7
-    //       always includes overflow bins in statistics, and ROOT 6 and ROOT 7
-    //       disagree on what the coordinates of overflow bins are.
-    //
-    //       Given that those stats are somewhat meaningless in that situation
-    //       anyway, I don't think achieving exact reproducibility should be a
-    //       goal here, so I won't test for it.
-    //
-    const double sumw = sum_over_bins([](const auto& bin) -> double {
-      return bin.GetStat().GetContent();
-    });
-    ASSERT_CLOSE(sumw, stats[0], 1e-6, "Sum of weights is incorrect");
-    const double sumw2 = sum_over_bins([](const auto& bin) -> double {
-      const double err = bin.GetStat().GetUncertainty();
-      return err * err;
-    });
-    ASSERT_CLOSE(sumw2, stats[1], 1e-6, "Sum of squared error is incorrect");
-    if (!data.exercizes_overflow) {
-      const double sumwx = sum_over_bins([](const auto& bin) -> double {
-        return bin.GetStat().GetContent() * bin.GetCenter()[0];
-      });
-      ASSERT_CLOSE(sumwx, stats[2], 1e-6, "Sum of weight * x is incorrect");
-      const double sumwx2 = sum_over_bins([](const auto& bin) -> double {
-        const double x = bin.GetCenter()[0];
-        return bin.GetStat().GetContent() * x * x;
-      });
-      ASSERT_CLOSE(sumwx2, stats[3], 1e-6, "Sum of weight * x^2 is incorrect");
-    }
-    // In TH2+, stats also contains...
-    // s[4]  = sumwy      s[5]  = sumwy2   s[6]  = sumwxy
-    if ((DIMS >= 2) && (!data.exercizes_overflow)) {
-      const double sumwy = sum_over_bins([](const auto& bin) -> double {
-        return bin.GetStat().GetContent() * bin.GetCenter()[1];
-      });
-      ASSERT_CLOSE(sumwy, stats[4], 1e-6, "Sum of weight * y is incorrect");
-      const double sumwy2 = sum_over_bins([](const auto& bin) -> double {
-        double y = bin.GetCenter()[1];
-        return bin.GetStat().GetContent() * y * y;
-      });
-      ASSERT_CLOSE(sumwy2, stats[5], 1e-6, "Sum of weight * y^2 is incorrect");
-      const double sumwxy = sum_over_bins([](const auto& bin) -> double {
-        const double x = bin.GetCenter()[0];
-        const double y = bin.GetCenter()[1];
-        return bin.GetStat().GetContent() * x * y;
-      });
-      ASSERT_CLOSE(sumwxy, stats[6], 1e-6, "Sum of weight * x * y is incorrect");
-    }
-    // In TH3, stats also contains...
-    // s[7]  = sumwz      s[8]  = sumwz2   s[9]  = sumwxz   s[10]  = sumwyz
-    if ((DIMS == 3) && (!data.exercizes_overflow)) {
-      const double sumwz = sum_over_bins([](const auto& bin) -> double {
-        return bin.GetStat().GetContent() * bin.GetCenter()[2];
-      });
-      ASSERT_CLOSE(sumwz, stats[7], 1e-6, "Sum of weight * z is incorrect");
-      const double sumwz2 = sum_over_bins([](const auto& bin) -> double {
-        double z = bin.GetCenter()[2];
-        return bin.GetStat().GetContent() * z * z;
-      });
-      ASSERT_CLOSE(sumwz2, stats[8], 1e-6, "Sum of weight * z^2 is incorrect");
-      const double sumwxz = sum_over_bins([](const auto& bin) -> double {
-        const double x = bin.GetCenter()[0];
-        const double z = bin.GetCenter()[2];
-        return bin.GetStat().GetContent() * x * z;
-      });
-      ASSERT_CLOSE(sumwxz, stats[9], 1e-6, "Sum of weight * x * z is incorrect");
-      const double sumwyz = sum_over_bins([](const auto& bin) -> double {
-        const double y = bin.GetCenter()[1];
-        const double z = bin.GetCenter()[2];
-        return bin.GetStat().GetContent() * y * z;
-      });
-      ASSERT_CLOSE(sumwyz, stats[10], 1e-6, "Sum of weight * y * z is incorrect");
-    }
-
-    // FIXME: Like the current converter code, this assumes that ROOT 6 and
-    //        ROOT 7 histograms follow the same binning conventions. However,
-    //        there are already two known cases of deviation:
-    //
-    //        - ROOT 6 histograms always have overflow bins, whereas growable
-    //          ROOT 7 histograms don't have them. IIUC, this means that we need
-    //          to check that the over- and underflow bins of growable ROOT 6
-    //          histograms are zeroed... and to use local bin coordinates.
-    //        - ROOT 7 multi-dimensional histograms seem to enumerate local bin
-    //          coordinates in a different order, but the logic is strange
-    //          enough that it could be a bug (e.g. local coordinates are given
-    //          in reverse order wrt histogram constructor axis configurations).
-    //
-    //        Need to think about how to best handle this without sacrificing
-    //        performance in the common case.
-    //
-    //        Having a way to get local bin coordinates while iterating a ROOT 7
-    //        histogram could be helpful here...
-    //
-    size_t root6_bin = 0;
-    for (const auto& bin: src) {
-      ASSERT_CLOSE(bin.GetStat().GetContent(),
-                   dest.GetBinContent(root6_bin),
-                   1e-6,
-                   "Histogram bin content does not match");
-      ASSERT_CLOSE(bin.GetStat().GetUncertainty(),
-                   dest.GetBinError(root6_bin),
-                   1e-6,
-                   "Histogram bin error does not match");
-      ++root6_bin;
-    }
+    // Check that the output histogram contains the same data as the input one
+    check_hist_data(src, data.exercizes_overflow, dest);
   }
   catch (const std::runtime_error& e)
   {
