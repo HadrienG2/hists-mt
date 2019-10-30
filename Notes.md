@@ -1,5 +1,8 @@
 # Parallel histogramming with ROOT 7
 
+- These are random unstructured personal notes, but you may find some of them
+  interesting when investigating ROOT 7 histograms.
+
 - Interesting places in the ROOT source code:
     * `hist/hist/v7` contains the ROOT 7 histogramming library
     * `tutorials/v7` contains some usage examples:
@@ -11,7 +14,7 @@
           demonstrates the effect of the choice of axis binning and does a
           performance comparison with ROOT 6 histograms.
         - Sadly, these examples are written in ROOT style and don't even have
-          a `main()` function, must be tweaked before they are usable.
+          a `main()` function, they must be tweaked before they are usable.
 
 - Container-based setup (for my machine, will need adaptations for yours)
     * Start container: `docker run --rm -it -v `pwd`/hists-mt:/mnt root-6.18-dev`
@@ -31,18 +34,19 @@
     * `RHistBinIter.hxx` is the machinery used to iterate over histogram bins.
     * `RHistBufferedFill.hxx` provides the eponymous wrapper around `RHist` that
       internally buffers `Fill()` calls in order to call `FillN()` in batches.
-      That is more efficient due to indirections in `RHist`...
+      That is more efficient as it avoids pImpl indirections in `RHist`...
     * `RHistConcurrentFill.hxx` provides the `RHistConcurrentFillManager`
       wrapper. This class provides mutex-protexted `FillN()` interfaces, and
       can spawn `RHistConcurrentFiller`s which are mostly `RHistBufferedFill`
       variants that commit their output as `FillN` transactions into the
       `RHistConcurrentFillManager`.
     * `RHistData.hxx` contains some statistical data that `RHist`/`RHistImpl`
-      can be configured to record. And some dirty metaprogramming black magic.
+      can be configured to record. And some evil metaprogramming black magic.
     * `RHistImpl.hxx` is where most `RHist` methods eventually get dispatched.
       This indirection can be used for various purposes, from type erasure for
-      plotting to hiding the fact that histograms are templated by axis
-      configuration, which is necessary for performance.
+      plotting to hiding the fact that histogram implementations are templated
+      by axis configuration, which is necessary for performance but
+      uninteresting to the histogram user.
     * `RHistUtils.hxx` contains the "coordinate array" template, which is
       essentially an extension of `std::array` that tries to be more ergonomic.
     * `RHistView.hxx` contains, as the name suggests, a way to extract a view
@@ -53,8 +57,7 @@
       the data to fill a ROOT 6 histogram will not be so easy.
     * To use `RHistConcurrentFiller` in Marlin, we'd need to somehow define a
       master copy of the histogram and have "child" processors fetch their own
-      accessor from it. That's not a bad design, but it can take some time to
-      work around.
+      accessor from it.
     * Would be nice to start with a consolidated microbenchmark that merges all
       the existing ones into one.
     * To get this kind of histogram to work with atomics, I'll need some custom
@@ -78,7 +81,7 @@
     * How ROOT 7's automatic `Fill()` batching mechanism compares to manual fill
       batching when all data has the same weight.
         - Answer: Asymptotically a bit slower (as it records weights), but very
-          close. Need a bit more data points to amortize too, around 16.
+          close. Need a bit more data points to amortize overhead, around 16.
     * What kind of slowdown one can expect from using concurrent histograms in
       sequential code. That's basically the overhead of an uncontended mutex,
       and gives a hint of the right buffer size for uncontended histograms.
@@ -117,10 +120,10 @@
 
 - Possible future discussion with ROOT people: why is fCanGrow an instance
   property of RAxisBase, given that subclasses already expose it via CanGrow()?
-    * Also, why isn't CanGrow() directly exposed in RAxisBase? I need that!
+    * Also, why isn't CanGrow() directly exposed in RAxisBase?
 
 - I can't find a way to reach axis labels from ROOT 7's type-erased interface.
-  If I can't get to those, then I can't propagate the labels to ROOT 6 hists
+  If I can't get to those, then I can't propagate the labels to ROOT 6 hists...
 
 - Right now, some information is directly accessible from RHist, and some other
   information requires poking into RHistImpl. It would be good to clarify that
@@ -132,8 +135,8 @@
   exposed to the outside world...
 
 - Another one: TH3 doesn't provide constructors for all supported axes
-  configuration. Working around this while keeping compiler error sane would
-  require me a fair bit of code.
+  configuration. Working around this while keeping compiler error sane requires
+  a fair bit of code...
 
 - As of september 6, I have a prototype of dimension-agnostic ROOT 7 -> ROOT 6
   histogram conversions. But it still needs extensive testing, and preliminary
@@ -151,14 +154,14 @@
     * In ROOT 7, growability and number of bins is linked. If you can grow, you
       don't have overflow bins. If you can't grow, you have overflow bins.
     * Growing is supposed to be handled by RAxisGrow::Grow() which... doesn't
-      seem to be implemented?!
+      seem to be implemented?
     * RAxisGrow doesn't override the bin location methods of RAxisEquidistant,
       which call into RAxisBase::AdjustOverflowBinNumber, which... assumes
-      existence of overflow bins!
-    * In essence, RAxisGrow seems too broken to be taken into account during
-      testing at this point in time... Disabling it for now.
-    * This also includes RAxisLabels, which is so badly broken that RHist will
-      not even build an histogram with this axis configuration.
+      existence of overflow bins?
+    * In essence, RAxisGrow is not in a good enough shape to be tested at this
+      point in time... Disabling it for now.
+    * This also includes RAxisLabels, a superset of RAxisGrow which is in such a
+      sad shape that the RHist constructor will crash when encountering it.
 
 - More suspicious ROOT 7 behavior: RAxisIrregular::GetBinFrom and
   RAxisIrregular::GetBinCenter use `std::numeric_limits<double>::min()` as an
@@ -172,8 +175,9 @@
     * This seems on purpose, given that the underlying RFillBinCoord impl has to
       do extra work to get this weird "coordidx" and it seems consistent with
       whatever RGetBinIndex which is used by Fill is doing.
-    * But I can't fathom who could possibly think that this confusing logic is
-      a good idea, and should have a chat with the ROOT team before moving on.
+    * However, this API's ergonomics are surprising enough that I still suspect
+      that it may not be the intended behavior.
+    * Need to have a chat with the ROOT team before moving forward here.
 
 - I have added a primitive build system and some separate compilation
     * Direct consequence: you can now run the tests with just `make tests -j8`
