@@ -67,6 +67,7 @@ int main() {
     }
   }
 
+  // ...and we're good.
   std::cout << "All tests passed successfully!" << std::endl;
   return 0;
 }
