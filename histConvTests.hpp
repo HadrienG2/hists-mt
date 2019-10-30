@@ -21,7 +21,7 @@ template <int DIMS,
           template <int D_, class P_> class... STAT>
 void test_conversion(RNG& rng,
                      std::array<RExp::RAxisConfig, DIMS>&& axis_configs) {
-  // Generate a ROOT 7 histogram, testing both empty and semicolon-ridden titles
+  // Generate a ROOT 7 histogram
   const std::string title = gen_hist_title(rng);
   using Source = RExp::RHist<DIMS, PRECISION, STAT...>;
   Source src(title, axis_configs);
