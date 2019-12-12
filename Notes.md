@@ -17,8 +17,8 @@
           a `main()` function, they must be tweaked before they are usable.
 
 - Container-based setup (for my machine, will need adaptations for yours)
-    * Start container: `docker run --rm -it -v `pwd`/hists-mt:/mnt root-6.18-dev`
-    * Set it up: `export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH && cd /mnt`
+    * Start container: `docker run --rm -it -v `pwd`/hists-mt:/mnt/hists-mt root-dev`
+    * Set it up: `export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH && cd /mnt/hists-mt`
     * Test histogram conversions: `make test -j8`
 
 - What ROOT 7 `hist` provides...
