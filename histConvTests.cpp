@@ -30,21 +30,8 @@ int main() {
     // FIXME: Add a way to test compilation failures
     /* test_conversion<1, size_t>(rng, {gen_axis_config(rng)}); */
 
-    // FIXME: Higher-dimensional histograms are broken for now, due to a binning
-    //        convention mismatch.
-    //
-    //        It's not clear to me if the current ROOT 7 multi-dimensional
-    //        histogram binning convention is correct, as it has some strange
-    //        properties such as providing local bin coordinates in an order
-    //        that is reversed wrt the order in which axis configurations are
-    //        passed to the RHist constructor.
-    //
-    //        Therefore, I should have a chat with the ROOT team to understand
-    //        what kind of binning convention they actually intend to have for
-    //        multi-dimensional RHist before fixing this bug.
-    //
-    /* // Try it with a 2D histogram
-    test_conversion<2, char>(rng, {gen_axis_config(rng), gen_axis_config(rng)}); */
+    // Try it with a 2D histogram
+    test_conversion<2, char>(rng, {gen_axis_config(rng), gen_axis_config(rng)});
 
     // Try it with a 3D histogram
     auto axis1 = gen_axis_config(rng);
@@ -53,9 +40,7 @@ int main() {
     bool homogeneous_config = (axis1.GetKind() == axis2.GetKind())
                                 && (axis2.GetKind() == axis3.GetKind());
     if (homogeneous_config) {
-      // FIXME: 3D histograms with homogeneous axis configuration should work,
-      //        but are currently disabled for the reason described above.
-      /* test_conversion<3, char>(rng, {axis1, axis2, axis3}); */
+      test_conversion<3, char>(rng, {axis1, axis2, axis3});
     } else {
       // 3D histogram with inhomogeneous axis configuration are currently
       // unsupported because TH3 does not provide a suitable constructor
