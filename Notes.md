@@ -18,7 +18,7 @@
 
 - Container-based setup (for my machine, will need adaptations for yours)
     * Start container: `docker run --rm -it -v `pwd`/hists-mt:/mnt/hists-mt root-dev`
-    * Set it up: `export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH && cd /mnt/hists-mt`
+    * Set it up: `source /usr/local/bin/thisroot.sh && cd /mnt/hists-mt`
     * Test histogram conversions: `make test -j8`
 
 - What ROOT 7 `hist` provides...
