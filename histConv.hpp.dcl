@@ -74,25 +74,25 @@ namespace detail
   // For a ROOT 7 histogram to be convertible to the ROOT 6 format, it must
   // collect the RHistStatContent statistic. Let's check for this.
   template <template <int D_, class P_> class... STAT>
-  constexpr bool stats_ok;
+  inline constexpr bool stats_ok = false;
 
   // If the user declares an RHist with an empty stats list, ROOT silently
   // adds RHistStatContent. So we must special-case this empty list.
   template <>
-  constexpr bool stats_ok<> = true;
+  inline constexpr bool stats_ok<> = true;
 
   // If there is only one stat in the list, then the assertion will succeed or
   // fail depending on if this stat is RHistStatContent.
   template <template <int D_, class P_> class SINGLE_STAT>
   constexpr bool stats_ok<SINGLE_STAT> = false;
   template <>
-  constexpr bool stats_ok<RExp::RHistStatContent> = true;
+  inline constexpr bool stats_ok<RExp::RHistStatContent> = true;
 
   // If there are 2+ stats in the list, then we iterate through recursion.
   // This case won't catch the 1-stat scenario due to above specializations.
   template <template <int D_, class P_> class STAT_HEAD,
             template <int D_, class P_> class... STAT_TAIL>
-  constexpr bool stats_ok<STAT_HEAD, STAT_TAIL...> =
+  inline constexpr bool stats_ok<STAT_HEAD, STAT_TAIL...> =
     stats_ok<STAT_HEAD> || stats_ok<STAT_TAIL...>;
 
   // We'll also want a nice compiler error message in the failing case
@@ -105,7 +105,7 @@ namespace detail
 
   // ...and then we can add a nicer user interface on top of that check
   template <template <int D_, class P_> class... STAT>
-  static constexpr bool CheckStats_v = CheckStats<STAT...>::value;
+  inline constexpr bool CheckStats_v = CheckStats<STAT...>::value;
 
 
   // === LOOK UP THE ROOT 6 EQUIVALENT OF OUR RHIST (IF ANY) ===
@@ -193,7 +193,7 @@ namespace detail
 
   // ...and the truth that a suitable ROOT6 hist type exists.
   template <int DIMENSIONS, class PRECISION>
-  static constexpr bool CheckRoot6Type_v =
+  inline constexpr bool CheckRoot6Type_v =
     CheckRoot6Type<DIMENSIONS, PRECISION>::value;
 
 
