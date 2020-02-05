@@ -122,7 +122,6 @@ void TestData<DIMS, Weight>::print() const {
 template <int DIMS>
 void check_hist_config(
   const RExp::Detail::RHistImplPrecisionAgnosticBase<DIMS>& src_impl,
-  const std::array<RExp::RAxisConfig, DIMS>& axis_configs,
   const std::string& name,
   TH1& dest
 ) {
@@ -141,9 +140,11 @@ void check_hist_config(
             "Output histogram shouldn't have a normalization factor");
 
   // Check axis configuration
-  check_axis_config(*dest.GetXaxis(), axis_configs[0]);
-  if constexpr (DIMS >= 2) check_axis_config(*dest.GetYaxis(), axis_configs[1]);
-  if constexpr (DIMS == 3) check_axis_config(*dest.GetZaxis(), axis_configs[2]);
+  check_axis_config(src_impl.GetAxis(0), *dest.GetXaxis());
+  if constexpr (DIMS >= 2)
+    check_axis_config(src_impl.GetAxis(1), *dest.GetYaxis());
+  if constexpr (DIMS == 3)
+    check_axis_config(src_impl.GetAxis(2), *dest.GetZaxis());
 }
 
 
@@ -303,11 +304,7 @@ void test_conversion(RNG& rng,
     auto dest = into_root6_hist(src, name.c_str());
 
     // Check the output histogram is configured like the input one
-    //
-    // FIXME: Stop passing in axis_configs once there is a lossless way to get
-    //        the axis configuration of a ROOT 7 histogram.
-    //
-    check_hist_config<DIMS>(*src.GetImpl(), axis_configs, name, dest);
+    check_hist_config<DIMS>(*src.GetImpl(), name, dest);
 
     // Check that the output histogram contains the same data as the input one
     check_hist_data(src, data.exercizes_overflow, dest);

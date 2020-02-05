@@ -226,43 +226,33 @@ void assert_runtime_error(std::function<void()>&& operation,
 }
 
 
-void check_axis_config(TAxis& axis, const RExp::RAxisConfig& config) {
+void check_axis_config(const RExp::RAxisBase& src, TAxis& dest) {
   // Checks which are common to all axis configurations
-  ASSERT_EQ(config.GetTitle(), axis.GetTitle(),
+  ASSERT_EQ(src.GetTitle(), dest.GetTitle(),
             "Incorrect output axis title");
-  ASSERT_EQ(config.GetNBinsNoOver(), axis.GetNbins(),
+  ASSERT_EQ(src.GetNBinsNoOver(), dest.GetNbins(),
             "Incorrect number of bins");
+  ASSERT_EQ(src.CanGrow(), dest.CanExtend(),
+            "Axis growability does not match");
 
   // Checks which are specific to RAxisEquidistant and RAxisGrow
-  const bool is_equidistant =
-    config.GetKind() == RExp::RAxisConfig::EKind::kEquidistant;
-  const bool is_grow =
-    config.GetKind() == RExp::RAxisConfig::EKind::kGrow;
-  if (is_equidistant || is_grow) {
-    // FIXME: Use RAxisBase instead of RAxisConfig and compare CanGrow vs
-    //        CanExtend above instead.
-    ASSERT_EQ(is_grow, axis.CanExtend(),
-              "Axis growability does not match");
-    ASSERT_CLOSE(config.GetBinBorders()[0], axis.GetXmin(), 1e-6,
+  const auto src_eq = dynamic_cast<const RExp::RAxisEquidistant*>(&src);
+  if (src_eq != nullptr) {
+    ASSERT_CLOSE(src.GetMinimum(), dest.GetXmin(), 1e-6,
                  "Axis minimum does not match");
-    ASSERT_CLOSE(config.GetBinBorders()[1], axis.GetXmax(), 1e-6,
+    ASSERT_CLOSE(src.GetMaximum(), dest.GetXmax(), 1e-6,
                  "Axis maximum does not match");
   }
 
   // Checks which are specific to irregular axes
-  const bool is_irregular =
-    config.GetKind() == RExp::RAxisConfig::EKind::kIrregular;
+  const auto src_irr = dynamic_cast<const RExp::RAxisIrregular*>(&src);
+  const bool is_irregular = (src_irr != nullptr);
   ASSERT_EQ(is_irregular,
-            axis.IsVariableBinSize(),
+            dest.IsVariableBinSize(),
             "Irregular ROOT 7 axes (only) should have variable bins");
   if (is_irregular) {
-    // FIXME: Use RAxisBase instead of RAxisConfig and compare CanGrow vs
-    //        CanExtend above instead.
-    ASSERT_EQ(false, axis.CanExtend(),
-              "Axis growability does not match");
-
-    const auto& bins = *axis.GetXbins();
-    const auto& expected_bins = config.GetBinBorders();
+    const auto& bins = *dest.GetXbins();
+    const auto& expected_bins = src_irr->GetBinBorders();
     ASSERT_EQ(size_t(bins.fN), expected_bins.size(),
               "Wrong number of bin borders");
     for (int i = 0; i < bins.fN; ++i) {
@@ -271,21 +261,17 @@ void check_axis_config(TAxis& axis, const RExp::RAxisConfig& config) {
   }
 
   // Checks which are specific to labeled axes
-  bool is_labeled = config.GetKind() == RExp::RAxisConfig::EKind::kLabels;
+  const auto src_lab = dynamic_cast<const RExp::RAxisLabels*>(&src);
+  bool is_labeled = (src_lab != nullptr);
   ASSERT_EQ(is_labeled,
-            axis.CanBeAlphanumeric() || axis.IsAlphanumeric(),
+            dest.CanBeAlphanumeric() || dest.IsAlphanumeric(),
             "Labeled ROOT 7 axes (only) should be alphanumeric");
   if (is_labeled) {
-    // FIXME: Use RAxisBase instead of RAxisConfig and compare CanGrow vs
-    //        CanExtend above instead.
-    ASSERT_EQ(true, axis.CanExtend(),
-              "Axis growability does not match");
-
-    auto labels_ptr = axis.GetLabels();
+    auto labels_ptr = dest.GetLabels();
     ASSERT_NOT_NULL(labels_ptr, "Labeled axes should have labels");
 
     auto labels_iter_ptr = labels_ptr->MakeIterator();
-    const auto expected_labels = config.GetBinLabels();
+    const auto expected_labels = src_lab->GetBinLabels();
     auto expected_labels_iter = expected_labels.cbegin();
     TObject* label_ptr;
     size_t num_labels = 0;
@@ -294,7 +280,8 @@ void check_axis_config(TAxis& axis, const RExp::RAxisConfig& config) {
            && (expected_labels_iter != expected_labels.cend())) {
       num_labels += 1;
       const auto& label = dynamic_cast<const TObjString&>(*label_ptr);
-      ASSERT_EQ(expected_labels_iter->c_str(), label.GetString(),
+      std::string expected_label_str(*expected_labels_iter);
+      ASSERT_EQ(expected_label_str.c_str(), label.GetString(),
                 "Some axis labels do not match");
       ++expected_labels_iter;
     }

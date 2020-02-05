@@ -106,14 +106,13 @@ void test_conversion(RNG& rng,
 
 // Check that a ROOT 6 axis is configured like a ROOT 7 one
 // NOTE: Cannot use const TAxis& because some TAxis accessors are not const...
-void check_axis_config(TAxis& axis, const RExp::RAxisConfig& config);
+void check_axis_config(const RExp::RAxisBase& src, TAxis& dest);
 
 // Check that a ROOT 6 histogram is configured like a ROOT 7 one
 // NOTE: Cannot use const TH1& because some TAxis accessors are not const...
 template <int DIMS>
 void check_hist_config(
   const RExp::Detail::RHistImplPrecisionAgnosticBase<DIMS>& src_impl,
-  const std::array<RExp::RAxisConfig, DIMS>& axis_configs,
   const std::string& name,
   TH1& dest
 );
