@@ -52,6 +52,9 @@ namespace detail
   struct MakeRoot6Hist<3>
   {
     // Generally speaking, we fail at runtime...
+    //
+    // FIXME: Instead of failing, build with wrong axis configuration and adapt
+    //        to the actual configuration after construction
     template <typename Output, typename... BuildParams>
     static Output make(std::tuple<BuildParams...>&& th3_params) {
       std::ostringstream s;
@@ -195,7 +198,7 @@ namespace detail
         auto& dest_axis = get_root6_axis(dest, AXIS);
         setup_axis_base(dest_axis, irr_axis);
 
-        // Irregular axes cannot be labeled as of ROOT 6.18
+        // Only RAxisLabels can have labels as of ROOT 6.18
         dest_axis.SetNoAlphanumeric(true);
 
         // Send back the histogram to caller
