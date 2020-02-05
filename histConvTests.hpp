@@ -223,22 +223,24 @@ void check_hist_data(const Root7Hist& src,
 
   // FIXME: Like the current converter code, this assumes that ROOT 6 and
   //        ROOT 7 histograms follow the same binning conventions. However,
-  //        there are already two known cases of deviation:
+  //        growable ROOT 7 axes (which are currently broken) do not have them.
   //
-  //        - ROOT 6 histograms always have overflow bins, whereas growable
-  //          ROOT 7 histograms don't have them. IIUC, this means that we need
-  //          to check that the over- and underflow bins of growable ROOT 6
-  //          histograms are zeroed... and to use local bin coordinates.
-  //        - ROOT 7 multi-dimensional histograms seem to enumerate local bin
-  //          coordinates in a different order, but the logic is strange
-  //          enough that it could be a bug (e.g. local coordinates are given
-  //          in reverse order wrt histogram constructor axis configurations).
+  //        IIUC, this means that we need to check that the over- and underflow
+  //        bins of growable ROOT 6 histograms are zeroed, and use local bin
+  //        coordinates for those histograms.
   //
   //        Need to think about how to best handle this without sacrificing
-  //        performance in the common case.
+  //        performance in the common case. Having a way to get local bin
+  //        coordinates while iterating a ROOT 7 histogram could be helpful
+  //        in this situation...
   //
-  //        Having a way to get local bin coordinates while iterating a ROOT 7
-  //        histogram could be helpful here...
+  //        However, an alternative which has been discussed with Axel is to
+  //        handle underflow and overflow bins apart from the main histogram
+  //        bins, since they must be handled specially by the client anyway.
+  //
+  //        TL;DR Growable axes are very much WIP in ROOT 7 at the moment, and
+  //        I shouldn't try to test them until we at least have a prototype or
+  //        a decent understanding of how they're supposed to behave.
   //
   size_t root6_bin = 0;
   for (const auto& bin: src) {
