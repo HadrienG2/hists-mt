@@ -114,12 +114,12 @@ namespace detail
 
   // Shorthand for an excessively long name
   template <int DIMS>
-  using RHistImplBase = RExp::Detail::RHistImplPrecisionAgnosticBase<DIMS>;
+  using RHistImplPABase = RExp::Detail::RHistImplPrecisionAgnosticBase<DIMS>;
 
   // Create a ROOT 6 histogram whose global and per-axis configuration matches
   // that of an input ROOT 7 histogram as closely as possible.
   template <class Output, int AXIS, int DIMS, class... BuildParams>
-  Output convert_hist_loop(const RHistImplBase<DIMS>& src_impl,
+  Output convert_hist_loop(const RHistImplPABase<DIMS>& src_impl,
                            std::tuple<BuildParams...>&& build_params) {
     // This function is actually a kind of recursive loop for AXIS ranging
     // from 0 to the dimension of the histogram, inclusive.
@@ -227,8 +227,7 @@ namespace detail
   // conventions (starting index, N-d array serialization order) since we
   // currently rely on that assumption for fast histogram bin data transfer.
   template <class THx, int DIMS>
-  void check_binning(const THx& dest, const RHistImplBase<DIMS>& src_impl)
-  {
+  void check_binning(const THx& dest, const RHistImplPABase<DIMS>& src_impl) {
     // Check that bins from ROOT 7 are "close enough" to those from ROOT 7
     auto bins_similar = [](auto src_bins, auto dest_bins) -> bool {
       static constexpr double TOLERANCE = 1e-6;

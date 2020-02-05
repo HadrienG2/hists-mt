@@ -199,7 +199,8 @@ void print_axis_config(const RExp::RAxisBase& axis) {
 
 
 void assert_runtime_error(std::function<void()>&& operation,
-                          std::string&& failure_message) {
+                          std::string&& failure_message)
+{
   bool failed = false;
   try {
     operation();

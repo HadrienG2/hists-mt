@@ -97,11 +97,10 @@ void TestData<DIMS, Weight>::print() const {
 
 
 template <int DIMS>
-void check_hist_config(
-  const RExp::Detail::RHistImplPrecisionAgnosticBase<DIMS>& src_impl,
-  const std::string& name,
-  TH1& dest
-) {
+void check_hist_config(const RHistImplPABase<DIMS>& src_impl,
+                       const std::string& name,
+                       TH1& dest)
+{
   // Check non-axis histogram configuration
   ASSERT_EQ(name, dest.GetName(), "Incorrect output histogram name");
   ASSERT_EQ(src_impl.GetTitle(), dest.GetTitle(),
@@ -261,7 +260,8 @@ template <int DIMS,
           class PRECISION,
           template <int D_, class P_> class... STAT>
 void test_conversion(RNG& rng,
-                     std::array<RExp::RAxisConfig, DIMS>&& axis_configs) {
+                     std::array<RExp::RAxisConfig, DIMS>&& axis_configs)
+{
   // Make a ROOT 7 histogram
   const std::string title = gen_hist_title(rng);
   using Source = RExp::RHist<DIMS, PRECISION, STAT...>;
