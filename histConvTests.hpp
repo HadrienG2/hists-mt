@@ -17,43 +17,20 @@
 template <int DIMS, typename Weight>
 TestData<DIMS, Weight>::TestData(
   RNG& rng,
-  const std::array<RExp::RAxisConfig, DIMS>& axis_configs
+  const RHistImplPABase<DIMS>& target
 )
   : exercizes_overflow{gen_bool(rng)}
 {
   // Determine which coordinate range the test data should span
   std::pair<CoordArray, CoordArray> coord_range;
   for (size_t axis_idx = 0; axis_idx < DIMS; ++axis_idx) {
-    const auto& axis_config = axis_configs[axis_idx];
-    switch (axis_config.GetKind())
-    {
-    case RExp::RAxisConfig::EKind::kEquidistant:
-    case RExp::RAxisConfig::EKind::kGrow:
-    case RExp::RAxisConfig::EKind::kIrregular: {
-      const auto& bin_borders = axis_config.GetBinBorders();
-      coord_range.first[axis_idx] = bin_borders[0];
-      coord_range.second[axis_idx] = bin_borders[bin_borders.size()-1];
-      if (this->exercizes_overflow) {
-        const double bin_border_delta = bin_borders[1] - bin_borders[0];
-        coord_range.first[axis_idx] -= bin_border_delta;
-        coord_range.second[axis_idx] += bin_border_delta;
-      }
-      break;
-    }
-
-    case RExp::RAxisConfig::EKind::kLabels: {
-      const auto& bin_labels = axis_config.GetBinLabels();
-      coord_range.first[axis_idx] = 0;
-      coord_range.second[axis_idx] = bin_labels.size();
-      if (this->exercizes_overflow) {
-        coord_range.first[axis_idx] -= 1;
-        coord_range.second[axis_idx] += 1;
-      }
-      break;
-    }
-
-    default:
-      throw std::runtime_error("This switch is broken, please fix it");
+    const auto& axis = target.GetAxis(axis_idx);
+    coord_range.first[axis_idx] = axis.GetMinimum();
+    coord_range.second[axis_idx] = axis.GetMaximum();
+    if (this->exercizes_overflow) {
+      const auto bin_spacing = axis.GetBinTo(1) - axis.GetBinTo(0);
+      coord_range.first[axis_idx] -= bin_spacing;
+      coord_range.second[axis_idx] += bin_spacing;
     }
   }
 
@@ -289,7 +266,7 @@ void test_conversion(RNG& rng,
   Source src(title, axis_configs);
 
   // Fill it with some test data
-  const TestData<DIMS, typename Source::Weight_t> data(rng, axis_configs);
+  const TestData<DIMS, typename Source::Weight_t> data(rng, *src.GetImpl());
   if (!data.weights.empty()) {
     src.FillN(data.coords, data.weights);
   } else {
