@@ -146,7 +146,7 @@ std::string gen_hist_title(RNG& rng) {
 void print_axis_config(const RExp::RAxisConfig& axis_config) {
   // Common subset of all axis configuration displays
   auto print_header = [&axis_config]() {
-    std::cout << " (" << axis_config.GetNBins() << " bins inc. overflow";
+    std::cout << " (" << axis_config.GetNBinsNoOver() << " bins exc. overflow";
   };
 
   // Common subset of equidistant/growable axes display
@@ -232,9 +232,6 @@ void check_axis_config(TAxis& axis, const RExp::RAxisConfig& config) {
             "Incorrect output axis title");
   ASSERT_EQ(config.GetNBinsNoOver(), axis.GetNbins(),
             "Incorrect number of bins");
-  // FIXME: No direct axis to RAxisBase::fCanGrow at this point in time...
-  ASSERT_EQ(config.GetNOverflowBins() == 0, axis.CanExtend(),
-            "Axis growability does not match");
 
   // Checks which are specific to RAxisEquidistant and RAxisGrow
   const bool is_equidistant =
@@ -242,6 +239,10 @@ void check_axis_config(TAxis& axis, const RExp::RAxisConfig& config) {
   const bool is_grow =
     config.GetKind() == RExp::RAxisConfig::EKind::kGrow;
   if (is_equidistant || is_grow) {
+    // FIXME: Use RAxisBase instead of RAxisConfig and compare CanGrow vs
+    //        CanExtend above instead.
+    ASSERT_EQ(is_grow, axis.CanExtend(),
+              "Axis growability does not match");
     ASSERT_CLOSE(config.GetBinBorders()[0], axis.GetXmin(), 1e-6,
                  "Axis minimum does not match");
     ASSERT_CLOSE(config.GetBinBorders()[1], axis.GetXmax(), 1e-6,
@@ -255,6 +256,11 @@ void check_axis_config(TAxis& axis, const RExp::RAxisConfig& config) {
             axis.IsVariableBinSize(),
             "Irregular ROOT 7 axes (only) should have variable bins");
   if (is_irregular) {
+    // FIXME: Use RAxisBase instead of RAxisConfig and compare CanGrow vs
+    //        CanExtend above instead.
+    ASSERT_EQ(false, axis.CanExtend(),
+              "Axis growability does not match");
+
     const auto& bins = *axis.GetXbins();
     const auto& expected_bins = config.GetBinBorders();
     ASSERT_EQ(size_t(bins.fN), expected_bins.size(),
@@ -270,6 +276,11 @@ void check_axis_config(TAxis& axis, const RExp::RAxisConfig& config) {
             axis.CanBeAlphanumeric() || axis.IsAlphanumeric(),
             "Labeled ROOT 7 axes (only) should be alphanumeric");
   if (is_labeled) {
+    // FIXME: Use RAxisBase instead of RAxisConfig and compare CanGrow vs
+    //        CanExtend above instead.
+    ASSERT_EQ(true, axis.CanExtend(),
+              "Axis growability does not match");
+
     auto labels_ptr = axis.GetLabels();
     ASSERT_NOT_NULL(labels_ptr, "Labeled axes should have labels");
 

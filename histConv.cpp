@@ -52,10 +52,8 @@ namespace detail
 
 
   Double_t get_bin_from_root6(const TAxis& axis, Int_t bin) {
-    // FIXME: This matches the ROOT 7 behavior... but said behavior is wrong.
-    //        std::numeric_limits<double>::lowest() should be used.
     if (axis.IsVariableBinSize() && (bin == 0)) {
-      return std::numeric_limits<double>::min();
+      return std::numeric_limits<double>::lowest();
     } else {
       return axis.GetBinLowEdge(bin);
     }
@@ -91,13 +89,7 @@ namespace detail
     dest.SetTitle(src.GetTitle().c_str());
 
     // Propagate axis growability
-    // FIXME: No direct access fo fCanGrow in RAxisBase yet...
-    dest.SetCanExtend((src.GetNOverflowBins() == 0));
-
-    // Propagate whether this is a labeled axis
-    // FIXME: Can't support labeled axes yet because RAxisBase does not
-    //        provide a way to check if an axis is labeled...
-    dest.SetNoAlphanumeric(true);
+    dest.SetCanExtend(src.CanGrow());
   }
 
 
