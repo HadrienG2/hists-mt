@@ -264,9 +264,10 @@ void test_conversion(RNG& rng,
   const std::string title = gen_hist_title(rng);
   using Source = RExp::RHist<DIMS, PRECISION, STAT...>;
   Source src(title, axis_configs);
+  const auto& src_impl = *src.GetImpl();
 
   // Fill it with some test data
-  const TestData<DIMS, typename Source::Weight_t> data(rng, *src.GetImpl());
+  const TestData<DIMS, typename Source::Weight_t> data(rng, src_impl);
   if (!data.weights.empty()) {
     src.FillN(data.coords, data.weights);
   } else {
@@ -281,7 +282,7 @@ void test_conversion(RNG& rng,
     auto dest = into_root6_hist(src, name.c_str());
 
     // Check the output histogram is configured like the input one
-    check_hist_config<DIMS>(*src.GetImpl(), name, dest);
+    check_hist_config<DIMS>(src_impl, name, dest);
 
     // Check that the output histogram contains the same data as the input one
     check_hist_data(src, data.exercizes_overflow, dest);
@@ -300,10 +301,9 @@ void test_conversion(RNG& rng,
 
     // Print input axis configuration
     std::cout << "* Axis configuration was..." << std::endl;
-    char axis_name = 'X';
-    for (const auto& axis_config : axis_configs) {
-      std::cout << "  - " << axis_name++ << ": ";
-      print_axis_config(axis_config);
+    for (int axis = 0; axis < DIMS; ++axis) {
+      std::cout << "  - " << static_cast<char>('X' + axis) << ": ";
+      print_axis_config(src_impl.GetAxis(axis));
       std::cout << std::endl;
     }
 

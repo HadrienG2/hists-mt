@@ -95,7 +95,7 @@ struct TestData {
 
 // Print out axis configurations from a histogram
 // (split from test_conversion to reduce template code bloat)
-void print_axis_config(const RExp::RAxisConfig& axis_config);
+void print_axis_config(const RExp::RAxisBase& axis);
 
 // Calls test_conversion with some exotic stats configurations
 // (extracted from main() to test both histConv.hpp.dcl and full histConv.hpp)

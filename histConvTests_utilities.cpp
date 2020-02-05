@@ -143,23 +143,14 @@ std::string gen_hist_title(RNG& rng) {
 }
 
 
-void print_axis_config(const RExp::RAxisConfig& axis_config) {
-  // Common subset of all axis configuration displays
-  auto print_header = [&axis_config]() {
-    std::cout << " (" << axis_config.GetNBinsNoOver() << " bins exc. overflow";
-  };
-
-  // Common subset of equidistant/growable axes display
-  auto print_equidistant = [&axis_config, &print_header]() {
-    print_header();
-    std::cout << " from " << axis_config.GetBinBorders()[0]
-              << " to " << axis_config.GetBinBorders()[1]
-              << ')';
-  };
+void print_axis_config(const RExp::RAxisBase& axis) {
+  // Things which we display for all axis types
+  std::cout << (axis.CanGrow() ? "G" : "Non-g") << "rowable, "
+            << axis.GetNBinsNoOver() << " bins exc. overflow";
 
   // Recipe for partial printout of std::vector-like data
   auto print_vector = [](const auto& vector, auto&& elem_printer) {
-    std::cout << " { ";
+    std::cout << "{ ";
     for (size_t i = 0; i < std::min(3ul, vector.size()-1); ++i) {
       elem_printer(vector[i]);
       std::cout << ", ";
@@ -172,42 +163,37 @@ void print_axis_config(const RExp::RAxisConfig& axis_config) {
       std::cout << ", ";
     }
     elem_printer(vector[vector.size()-1]);
-    std::cout << " })";
+    std::cout << " }";
   };
 
-  // And now we get into the specifics of individual axis types.
-  switch (axis_config.GetKind())
-  {
-  case RExp::RAxisConfig::kEquidistant:
-    std::cout << "Equidistant";
-    print_equidistant();
-    break;
+  // Specifics of equidistant (and growable) axes
+  const auto eq_axis = dynamic_cast<const RExp::RAxisEquidistant*>(&axis);
+  if (eq_axis != nullptr) {
+    std::cout << ", equidistant from " << axis.GetMinimum() << " to "
+              << axis.GetMaximum();
+  }
 
-  case RExp::RAxisConfig::kGrow:
-    std::cout << "Growable";
-    print_equidistant();
-    break;
-
-  case RExp::RAxisConfig::kIrregular:
-    std::cout << "Irregular";
-    print_header();
-    std::cout << " with borders";
-    print_vector(axis_config.GetBinBorders(),
+  // Specifics of irregular axes
+  const auto irr_axis = dynamic_cast<const RExp::RAxisIrregular*>(&axis);
+  if (irr_axis != nullptr) {
+    std::cout << ", irregular with borders ";
+    print_vector(irr_axis->GetBinBorders(),
                  []( double border ) { std::cout << border; });
-    break;
+  }
 
-  case RExp::RAxisConfig::kLabels:
-    std::cout << "Labeled";
-    print_header();
-    std::cout << " with labels";
-    print_vector(axis_config.GetBinLabels(),
-                 []( const std::string& label ) {
+  // Specifics of labeled axes
+  const auto lab_axis = dynamic_cast<const RExp::RAxisLabels*>(&axis);
+  if (lab_axis != nullptr) {
+    std::cout << ", with bin labels ";
+    print_vector(lab_axis->GetBinLabels(),
+                 []( const auto label ) {
                    std::cout << '"' << label << '"';
                  });
-    break;
+  }
 
-  default:
-    throw std::runtime_error("Unsupported axis kind, please fix it.");
+  // Warn about unsupported axis types
+  if ((eq_axis == nullptr) && (irr_axis == nullptr)) {
+    throw std::runtime_error("Unsupported axis kind, please fix this code.");
   }
 }
 
