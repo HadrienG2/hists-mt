@@ -4,7 +4,7 @@ CXX:=g++
 LTOFLAGS:=-flto=$(shell nproc --all)
 CXXFLAGS:=-O3 -march=native -std=c++17 -Wall -Wextra -pedantic $(LTOFLAGS)
 LDFLAGS:=$(LTOFLAGS)
-LDLIBS:=-pthread -lCore -lHist
+LDLIBS:=-pthread -lCore -lHist -lROOTHist
 
 TARGETS:=fillBench histConvTests
 
