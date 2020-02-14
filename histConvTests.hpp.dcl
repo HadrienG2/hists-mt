@@ -45,6 +45,10 @@ constexpr size_t NUM_TEST_RUNS = 10000;
 // Typing this gets old quickly
 namespace RExp = ROOT::Experimental;
 
+// Same for this
+template <int DIMS>
+using RHistImplPABase = RExp::Detail::RHistImplPrecisionAgnosticBase<DIMS>;
+
 // RNG range. Should add +1 to avoid bias but that can lead to overflow...
 constexpr auto RNG_CHOICE = RNG::max() - RNG::min();
 
@@ -83,7 +87,7 @@ struct TestData {
   bool exercizes_overflow;
 
   // Constructor that generates the test data
-  TestData(RNG& rng, const std::array<RExp::RAxisConfig, DIMS>& axis_configs);
+  TestData(RNG& rng, const RHistImplPABase<DIMS>& target);
 
   // Print the test data as a (big) one-liner
   void print() const;
@@ -91,7 +95,7 @@ struct TestData {
 
 // Print out axis configurations from a histogram
 // (split from test_conversion to reduce template code bloat)
-void print_axis_config(const RExp::RAxisConfig& axis_config);
+void print_axis_config(const RExp::RAxisBase& axis);
 
 // Calls test_conversion with some exotic stats configurations
 // (extracted from main() to test both histConv.hpp.dcl and full histConv.hpp)
@@ -106,17 +110,14 @@ void test_conversion(RNG& rng,
 
 // Check that a ROOT 6 axis is configured like a ROOT 7 one
 // NOTE: Cannot use const TAxis& because some TAxis accessors are not const...
-void check_axis_config(TAxis& axis, const RExp::RAxisConfig& config);
+void check_axis_config(const RExp::RAxisBase& src, TAxis& dest);
 
 // Check that a ROOT 6 histogram is configured like a ROOT 7 one
 // NOTE: Cannot use const TH1& because some TAxis accessors are not const...
 template <int DIMS>
-void check_hist_config(
-  const RExp::Detail::RHistImplPrecisionAgnosticBase<DIMS>& src_impl,
-  const std::array<RExp::RAxisConfig, DIMS>& axis_configs,
-  const std::string& name,
-  TH1& dest
-);
+void check_hist_config(const RHistImplPABase<DIMS>& src_impl,
+                       const std::string& name,
+                       TH1& dest);
 
 // Check that a ROOT 6 histogram contains the same data as a ROOT 7 one
 template <typename THn, typename Root7Hist>

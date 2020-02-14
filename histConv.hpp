@@ -52,6 +52,9 @@ namespace detail
   struct MakeRoot6Hist<3>
   {
     // Generally speaking, we fail at runtime...
+    //
+    // FIXME: Instead of failing, build with wrong axis configuration and adapt
+    //        to the actual configuration after construction
     template <typename Output, typename... BuildParams>
     static Output make(std::tuple<BuildParams...>&& th3_params) {
       std::ostringstream s;
@@ -111,21 +114,22 @@ namespace detail
 
   // Shorthand for an excessively long name
   template <int DIMS>
-  using RHistImplBase = RExp::Detail::RHistImplPrecisionAgnosticBase<DIMS>;
+  using RHistImplPABase = RExp::Detail::RHistImplPrecisionAgnosticBase<DIMS>;
 
   // Create a ROOT 6 histogram whose global and per-axis configuration matches
   // that of an input ROOT 7 histogram as closely as possible.
   template <class Output, int AXIS, int DIMS, class... BuildParams>
-  Output convert_hist_loop(const RHistImplBase<DIMS>& src_impl,
+  Output convert_hist_loop(const RHistImplPABase<DIMS>& src_impl,
                            std::tuple<BuildParams...>&& build_params) {
     // This function is actually a kind of recursive loop for AXIS ranging
     // from 0 to the dimension of the histogram, inclusive.
     if constexpr (AXIS < DIMS) {
       // The first iterations query the input histogram axes one by one
-      const auto axis_view = src_impl.GetAxis(AXIS);
+      const auto& axis_view = src_impl.GetAxis(AXIS);
 
       // Is this an equidistant axis?
-      const auto* eq_axis_ptr = axis_view.GetAsEquidistant();
+      const auto* eq_axis_ptr =
+        dynamic_cast<const RExp::RAxisEquidistant*>(&axis_view);
       if (eq_axis_ptr != nullptr) {
         const auto& eq_axis = *eq_axis_ptr;
 
@@ -146,31 +150,30 @@ namespace detail
                                     std::move(new_build_params));
 
         // Propagate basic axis properties
-        setup_axis_base(get_root6_axis(dest, AXIS), eq_axis);
+        auto& dest_axis = get_root6_axis(dest, AXIS);
+        setup_axis_base(dest_axis, eq_axis);
 
         // If the axis is labeled, propagate labels
-        //
-        // FIXME: There does not seem to be a way to go from RAxisView to axis
-        //        labels at the moment. Even dynamic_cast will fail because
-        //        RAxisXyz do not contain a single virtual method, and therefore
-        //        do not have the required infrastructure for dcasting.
-        //
-        /* const auto* lbl_axis_ptr =
+        const auto* lbl_axis_ptr =
           dynamic_cast<const RExp::RAxisLabels*>(&eq_axis);
         if (lbl_axis_ptr) {
+          dest_axis.SetNoAlphanumeric(false);
           auto labels = lbl_axis_ptr->GetBinLabels();
           for (size_t bin = 0; bin < labels.size(); ++bin) {
               std::string label{labels[bin]};
-              dest.SetBinLabel(bin, label.c_str());
+              dest_axis.SetBinLabel(bin, label.c_str());
           }
-        } */
+        } else {
+          dest_axis.SetNoAlphanumeric(true);
+        }
 
         // Send back the histogram to caller
         return dest;
       }
 
       // Is this an irregular axis?
-      const auto* irr_axis_ptr = axis_view.GetAsIrregular();
+      const auto* irr_axis_ptr =
+        dynamic_cast<const RExp::RAxisIrregular*>(&axis_view);
       if (irr_axis_ptr != nullptr) {
         const auto& irr_axis = *irr_axis_ptr;
 
@@ -192,8 +195,11 @@ namespace detail
                                     std::move(new_build_params));
 
         // Propagate basic axis properties
-        // There aren't any other properties for irregular axes.
-        setup_axis_base(get_root6_axis(dest, AXIS), irr_axis);
+        auto& dest_axis = get_root6_axis(dest, AXIS);
+        setup_axis_base(dest_axis, irr_axis);
+
+        // Only RAxisLabels can have labels as of ROOT 6.18
+        dest_axis.SetNoAlphanumeric(true);
 
         // Send back the histogram to caller
         return dest;
@@ -221,8 +227,7 @@ namespace detail
   // conventions (starting index, N-d array serialization order) since we
   // currently rely on that assumption for fast histogram bin data transfer.
   template <class THx, int DIMS>
-  void check_binning(const THx& dest, const RHistImplBase<DIMS>& src_impl)
-  {
+  void check_binning(const THx& dest, const RHistImplPABase<DIMS>& src_impl) {
     // Check that bins from ROOT 7 are "close enough" to those from ROOT 7
     auto bins_similar = [](auto src_bins, auto dest_bins) -> bool {
       static constexpr double TOLERANCE = 1e-6;

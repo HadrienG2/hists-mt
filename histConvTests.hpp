@@ -17,43 +17,20 @@
 template <int DIMS, typename Weight>
 TestData<DIMS, Weight>::TestData(
   RNG& rng,
-  const std::array<RExp::RAxisConfig, DIMS>& axis_configs
+  const RHistImplPABase<DIMS>& target
 )
   : exercizes_overflow{gen_bool(rng)}
 {
   // Determine which coordinate range the test data should span
   std::pair<CoordArray, CoordArray> coord_range;
   for (size_t axis_idx = 0; axis_idx < DIMS; ++axis_idx) {
-    const auto& axis_config = axis_configs[axis_idx];
-    switch (axis_config.GetKind())
-    {
-    case RExp::RAxisConfig::EKind::kEquidistant:
-    case RExp::RAxisConfig::EKind::kGrow:
-    case RExp::RAxisConfig::EKind::kIrregular: {
-      const auto& bin_borders = axis_config.GetBinBorders();
-      coord_range.first[axis_idx] = bin_borders[0];
-      coord_range.second[axis_idx] = bin_borders[bin_borders.size()-1];
-      if (this->exercizes_overflow) {
-        const double bin_border_delta = bin_borders[1] - bin_borders[0];
-        coord_range.first[axis_idx] -= bin_border_delta;
-        coord_range.second[axis_idx] += bin_border_delta;
-      }
-      break;
-    }
-
-    case RExp::RAxisConfig::EKind::kLabels: {
-      const auto& bin_labels = axis_config.GetBinLabels();
-      coord_range.first[axis_idx] = 0;
-      coord_range.second[axis_idx] = bin_labels.size();
-      if (this->exercizes_overflow) {
-        coord_range.first[axis_idx] -= 1;
-        coord_range.second[axis_idx] += 1;
-      }
-      break;
-    }
-
-    default:
-      throw std::runtime_error("This switch is broken, please fix it");
+    const auto& axis = target.GetAxis(axis_idx);
+    coord_range.first[axis_idx] = axis.GetMinimum();
+    coord_range.second[axis_idx] = axis.GetMaximum();
+    if (this->exercizes_overflow) {
+      const auto bin_spacing = axis.GetBinTo(1) - axis.GetBinTo(0);
+      coord_range.first[axis_idx] -= bin_spacing;
+      coord_range.second[axis_idx] += bin_spacing;
     }
   }
 
@@ -120,12 +97,10 @@ void TestData<DIMS, Weight>::print() const {
 
 
 template <int DIMS>
-void check_hist_config(
-  const RExp::Detail::RHistImplPrecisionAgnosticBase<DIMS>& src_impl,
-  const std::array<RExp::RAxisConfig, DIMS>& axis_configs,
-  const std::string& name,
-  TH1& dest
-) {
+void check_hist_config(const RHistImplPABase<DIMS>& src_impl,
+                       const std::string& name,
+                       TH1& dest)
+{
   // Check non-axis histogram configuration
   ASSERT_EQ(name, dest.GetName(), "Incorrect output histogram name");
   ASSERT_EQ(src_impl.GetTitle(), dest.GetTitle(),
@@ -141,9 +116,11 @@ void check_hist_config(
             "Output histogram shouldn't have a normalization factor");
 
   // Check axis configuration
-  check_axis_config(*dest.GetXaxis(), axis_configs[0]);
-  if constexpr (DIMS >= 2) check_axis_config(*dest.GetYaxis(), axis_configs[1]);
-  if constexpr (DIMS == 3) check_axis_config(*dest.GetZaxis(), axis_configs[2]);
+  check_axis_config(src_impl.GetAxis(0), *dest.GetXaxis());
+  if constexpr (DIMS >= 2)
+    check_axis_config(src_impl.GetAxis(1), *dest.GetYaxis());
+  if constexpr (DIMS == 3)
+    check_axis_config(src_impl.GetAxis(2), *dest.GetZaxis());
 }
 
 
@@ -245,22 +222,24 @@ void check_hist_data(const Root7Hist& src,
 
   // FIXME: Like the current converter code, this assumes that ROOT 6 and
   //        ROOT 7 histograms follow the same binning conventions. However,
-  //        there are already two known cases of deviation:
+  //        growable ROOT 7 axes (which are currently broken) do not have them.
   //
-  //        - ROOT 6 histograms always have overflow bins, whereas growable
-  //          ROOT 7 histograms don't have them. IIUC, this means that we need
-  //          to check that the over- and underflow bins of growable ROOT 6
-  //          histograms are zeroed... and to use local bin coordinates.
-  //        - ROOT 7 multi-dimensional histograms seem to enumerate local bin
-  //          coordinates in a different order, but the logic is strange
-  //          enough that it could be a bug (e.g. local coordinates are given
-  //          in reverse order wrt histogram constructor axis configurations).
+  //        IIUC, this means that we need to check that the over- and underflow
+  //        bins of growable ROOT 6 histograms are zeroed, and use local bin
+  //        coordinates for those histograms.
   //
   //        Need to think about how to best handle this without sacrificing
-  //        performance in the common case.
+  //        performance in the common case. Having a way to get local bin
+  //        coordinates while iterating a ROOT 7 histogram could be helpful
+  //        in this situation...
   //
-  //        Having a way to get local bin coordinates while iterating a ROOT 7
-  //        histogram could be helpful here...
+  //        However, an alternative which has been discussed with Axel is to
+  //        handle underflow and overflow bins apart from the main histogram
+  //        bins, since they must be handled specially by the client anyway.
+  //
+  //        TL;DR Growable axes are very much WIP in ROOT 7 at the moment, and
+  //        I shouldn't try to test them until we at least have a prototype or
+  //        a decent understanding of how they're supposed to behave.
   //
   size_t root6_bin = 0;
   for (const auto& bin: src) {
@@ -281,14 +260,16 @@ template <int DIMS,
           class PRECISION,
           template <int D_, class P_> class... STAT>
 void test_conversion(RNG& rng,
-                     std::array<RExp::RAxisConfig, DIMS>&& axis_configs) {
+                     std::array<RExp::RAxisConfig, DIMS>&& axis_configs)
+{
   // Make a ROOT 7 histogram
   const std::string title = gen_hist_title(rng);
   using Source = RExp::RHist<DIMS, PRECISION, STAT...>;
   Source src(title, axis_configs);
+  const auto& src_impl = *src.GetImpl();
 
   // Fill it with some test data
-  const TestData<DIMS, typename Source::Weight_t> data(rng, axis_configs);
+  const TestData<DIMS, typename Source::Weight_t> data(rng, src_impl);
   if (!data.weights.empty()) {
     src.FillN(data.coords, data.weights);
   } else {
@@ -303,11 +284,7 @@ void test_conversion(RNG& rng,
     auto dest = into_root6_hist(src, name.c_str());
 
     // Check the output histogram is configured like the input one
-    //
-    // FIXME: Stop passing in axis_configs once there is a lossless way to get
-    //        the axis configuration of a ROOT 7 histogram.
-    //
-    check_hist_config<DIMS>(*src.GetImpl(), axis_configs, name, dest);
+    check_hist_config<DIMS>(src_impl, name, dest);
 
     // Check that the output histogram contains the same data as the input one
     check_hist_data(src, data.exercizes_overflow, dest);
@@ -326,10 +303,9 @@ void test_conversion(RNG& rng,
 
     // Print input axis configuration
     std::cout << "* Axis configuration was..." << std::endl;
-    char axis_name = 'X';
-    for (const auto& axis_config : axis_configs) {
-      std::cout << "  - " << axis_name++ << ": ";
-      print_axis_config(axis_config);
+    for (int axis = 0; axis < DIMS; ++axis) {
+      std::cout << "  - " << static_cast<char>('X' + axis) << ": ";
+      print_axis_config(src_impl.GetAxis(axis));
       std::cout << std::endl;
     }
 

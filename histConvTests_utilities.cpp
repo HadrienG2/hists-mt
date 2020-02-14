@@ -143,23 +143,14 @@ std::string gen_hist_title(RNG& rng) {
 }
 
 
-void print_axis_config(const RExp::RAxisConfig& axis_config) {
-  // Common subset of all axis configuration displays
-  auto print_header = [&axis_config]() {
-    std::cout << " (" << axis_config.GetNBins() << " bins inc. overflow";
-  };
-
-  // Common subset of equidistant/growable axes display
-  auto print_equidistant = [&axis_config, &print_header]() {
-    print_header();
-    std::cout << " from " << axis_config.GetBinBorders()[0]
-              << " to " << axis_config.GetBinBorders()[1]
-              << ')';
-  };
+void print_axis_config(const RExp::RAxisBase& axis) {
+  // Things which we display for all axis types
+  std::cout << (axis.CanGrow() ? "G" : "Non-g") << "rowable, "
+            << axis.GetNBinsNoOver() << " bins exc. overflow";
 
   // Recipe for partial printout of std::vector-like data
   auto print_vector = [](const auto& vector, auto&& elem_printer) {
-    std::cout << " { ";
+    std::cout << "{ ";
     for (size_t i = 0; i < std::min(3ul, vector.size()-1); ++i) {
       elem_printer(vector[i]);
       std::cout << ", ";
@@ -172,48 +163,44 @@ void print_axis_config(const RExp::RAxisConfig& axis_config) {
       std::cout << ", ";
     }
     elem_printer(vector[vector.size()-1]);
-    std::cout << " })";
+    std::cout << " }";
   };
 
-  // And now we get into the specifics of individual axis types.
-  switch (axis_config.GetKind())
-  {
-  case RExp::RAxisConfig::kEquidistant:
-    std::cout << "Equidistant";
-    print_equidistant();
-    break;
+  // Specifics of equidistant (and growable) axes
+  const auto eq_axis = dynamic_cast<const RExp::RAxisEquidistant*>(&axis);
+  if (eq_axis != nullptr) {
+    std::cout << ", equidistant from " << axis.GetMinimum() << " to "
+              << axis.GetMaximum();
+  }
 
-  case RExp::RAxisConfig::kGrow:
-    std::cout << "Growable";
-    print_equidistant();
-    break;
-
-  case RExp::RAxisConfig::kIrregular:
-    std::cout << "Irregular";
-    print_header();
-    std::cout << " with borders";
-    print_vector(axis_config.GetBinBorders(),
+  // Specifics of irregular axes
+  const auto irr_axis = dynamic_cast<const RExp::RAxisIrregular*>(&axis);
+  if (irr_axis != nullptr) {
+    std::cout << ", irregular with borders ";
+    print_vector(irr_axis->GetBinBorders(),
                  []( double border ) { std::cout << border; });
-    break;
+  }
 
-  case RExp::RAxisConfig::kLabels:
-    std::cout << "Labeled";
-    print_header();
-    std::cout << " with labels";
-    print_vector(axis_config.GetBinLabels(),
-                 []( const std::string& label ) {
+  // Specifics of labeled axes
+  const auto lab_axis = dynamic_cast<const RExp::RAxisLabels*>(&axis);
+  if (lab_axis != nullptr) {
+    std::cout << ", with bin labels ";
+    print_vector(lab_axis->GetBinLabels(),
+                 []( const auto label ) {
                    std::cout << '"' << label << '"';
                  });
-    break;
+  }
 
-  default:
-    throw std::runtime_error("Unsupported axis kind, please fix it.");
+  // Warn about unsupported axis types
+  if ((eq_axis == nullptr) && (irr_axis == nullptr)) {
+    throw std::runtime_error("Unsupported axis kind, please fix this code.");
   }
 }
 
 
 void assert_runtime_error(std::function<void()>&& operation,
-                          std::string&& failure_message) {
+                          std::string&& failure_message)
+{
   bool failed = false;
   try {
     operation();
@@ -226,37 +213,33 @@ void assert_runtime_error(std::function<void()>&& operation,
 }
 
 
-void check_axis_config(TAxis& axis, const RExp::RAxisConfig& config) {
+void check_axis_config(const RExp::RAxisBase& src, TAxis& dest) {
   // Checks which are common to all axis configurations
-  ASSERT_EQ(config.GetTitle(), axis.GetTitle(),
+  ASSERT_EQ(src.GetTitle(), dest.GetTitle(),
             "Incorrect output axis title");
-  ASSERT_EQ(config.GetNBinsNoOver(), axis.GetNbins(),
+  ASSERT_EQ(src.GetNBinsNoOver(), dest.GetNbins(),
             "Incorrect number of bins");
-  // FIXME: No direct axis to RAxisBase::fCanGrow at this point in time...
-  ASSERT_EQ(config.GetNOverflowBins() == 0, axis.CanExtend(),
+  ASSERT_EQ(src.CanGrow(), dest.CanExtend(),
             "Axis growability does not match");
 
   // Checks which are specific to RAxisEquidistant and RAxisGrow
-  const bool is_equidistant =
-    config.GetKind() == RExp::RAxisConfig::EKind::kEquidistant;
-  const bool is_grow =
-    config.GetKind() == RExp::RAxisConfig::EKind::kGrow;
-  if (is_equidistant || is_grow) {
-    ASSERT_CLOSE(config.GetBinBorders()[0], axis.GetXmin(), 1e-6,
+  const auto src_eq = dynamic_cast<const RExp::RAxisEquidistant*>(&src);
+  if (src_eq != nullptr) {
+    ASSERT_CLOSE(src.GetMinimum(), dest.GetXmin(), 1e-6,
                  "Axis minimum does not match");
-    ASSERT_CLOSE(config.GetBinBorders()[1], axis.GetXmax(), 1e-6,
+    ASSERT_CLOSE(src.GetMaximum(), dest.GetXmax(), 1e-6,
                  "Axis maximum does not match");
   }
 
   // Checks which are specific to irregular axes
-  const bool is_irregular =
-    config.GetKind() == RExp::RAxisConfig::EKind::kIrregular;
+  const auto src_irr = dynamic_cast<const RExp::RAxisIrregular*>(&src);
+  const bool is_irregular = (src_irr != nullptr);
   ASSERT_EQ(is_irregular,
-            axis.IsVariableBinSize(),
+            dest.IsVariableBinSize(),
             "Irregular ROOT 7 axes (only) should have variable bins");
   if (is_irregular) {
-    const auto& bins = *axis.GetXbins();
-    const auto& expected_bins = config.GetBinBorders();
+    const auto& bins = *dest.GetXbins();
+    const auto& expected_bins = src_irr->GetBinBorders();
     ASSERT_EQ(size_t(bins.fN), expected_bins.size(),
               "Wrong number of bin borders");
     for (int i = 0; i < bins.fN; ++i) {
@@ -265,16 +248,17 @@ void check_axis_config(TAxis& axis, const RExp::RAxisConfig& config) {
   }
 
   // Checks which are specific to labeled axes
-  bool is_labeled = config.GetKind() == RExp::RAxisConfig::EKind::kLabels;
+  const auto src_lab = dynamic_cast<const RExp::RAxisLabels*>(&src);
+  bool is_labeled = (src_lab != nullptr);
   ASSERT_EQ(is_labeled,
-            axis.CanBeAlphanumeric() || axis.IsAlphanumeric(),
+            dest.CanBeAlphanumeric() || dest.IsAlphanumeric(),
             "Labeled ROOT 7 axes (only) should be alphanumeric");
   if (is_labeled) {
-    auto labels_ptr = axis.GetLabels();
+    auto labels_ptr = dest.GetLabels();
     ASSERT_NOT_NULL(labels_ptr, "Labeled axes should have labels");
 
     auto labels_iter_ptr = labels_ptr->MakeIterator();
-    const auto expected_labels = config.GetBinLabels();
+    const auto expected_labels = src_lab->GetBinLabels();
     auto expected_labels_iter = expected_labels.cbegin();
     TObject* label_ptr;
     size_t num_labels = 0;
@@ -283,7 +267,8 @@ void check_axis_config(TAxis& axis, const RExp::RAxisConfig& config) {
            && (expected_labels_iter != expected_labels.cend())) {
       num_labels += 1;
       const auto& label = dynamic_cast<const TObjString&>(*label_ptr);
-      ASSERT_EQ(expected_labels_iter->c_str(), label.GetString(),
+      std::string expected_label_str(*expected_labels_iter);
+      ASSERT_EQ(expected_label_str.c_str(), label.GetString(),
                 "Some axis labels do not match");
       ++expected_labels_iter;
     }
