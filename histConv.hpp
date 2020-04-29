@@ -324,12 +324,15 @@ namespace detail
     // This must be done before inserting any other data in the TH1,
     // otherwise Sumw2() will perform undesirable black magic...
     //
+    // FIXME: if constexpr is C++17-only, will need to be backported to C++14
+    //        for ROOT integration.
+    //
     const auto& stat = src.GetImpl()->GetStat();
-    if (stat.HasBinUncertainty()) {
+    if constexpr (stat.HasBinUncertainty()) {
       dest.Sumw2();
       auto& sumw2 = *dest.GetSumw2();
       for (size_t bin = 0; bin < stat.size(); ++bin) {
-        sumw2[bin] = stat.GetBinUncertainty(bin);
+        sumw2[bin] = stat.GetSumOfSquaredWeights(bin);
       }
     }
 
