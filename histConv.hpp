@@ -99,11 +99,19 @@ namespace detail
   TAxis& get_root6_axis(TH2& hist, size_t idx);
   TAxis& get_root6_axis(TH3& hist, size_t idx);
 
-  // ROOT 7-like GetBinFrom for ROOT 6
-  Double_t get_bin_from_root6(const TAxis& axis, Int_t bin);
-  std::array<Double_t, 1> get_bin_from_root6(const TH1& hist, Int_t bin);
-  std::array<Double_t, 2> get_bin_from_root6(const TH2& hist, Int_t bin);
-  std::array<Double_t, 3> get_bin_from_root6(const TH3& hist, Int_t bin);
+  // ROOT 7-like GetBinIndexFromLocalBins for ROOT 6
+  inline Int_t get_bin_idx_from_local_root6(const TH1& hist,
+                                            const std::array<Int_t, 1>& bins) {
+    return hist.GetBin(bins[0]);
+  }
+  inline Int_t get_bin_idx_from_local_root6(const TH2& hist,
+                                            const std::array<Int_t, 2>& bins) {
+    return hist.GetBin(bins[0], bins[1]);
+  }
+  inline Int_t get_bin_idx_from_local_root6(const TH3& hist,
+                                            const std::array<Int_t, 3>& bins) {
+    return hist.GetBin(bins[0], bins[1], bins[2]);
+  }
 
   // Transfer histogram axis settings which are common to all axis
   // configurations (currently equidistant, growable, irregular and labels)
@@ -223,64 +231,6 @@ namespace detail
   }
 
 
-  // Check that the input and output histogram use the same binning
-  // conventions (starting index, N-d array serialization order) since we
-  // currently rely on that assumption for fast histogram bin data transfer.
-  template <class THx, int DIMS>
-  void check_binning(const THx& dest, const RHistImplPABase<DIMS>& src_impl) {
-    // Check that bins from ROOT 7 are "close enough" to those from ROOT 7
-    auto bins_similar = [](auto src_bins, auto dest_bins) -> bool {
-      static constexpr double TOLERANCE = 1e-6;
-      if (src_bins.size() != dest_bins.size()) return false;
-      for (size_t i = 0; i < src_bins.size(); ++i) {
-        double diff = std::abs(src_bins[i] - dest_bins[i]);
-        if (diff >= TOLERANCE * std::abs(src_bins[i])) { return false; }
-      }
-      return true;
-    };
-
-    // Display a bunch of bins into a stringstream
-    auto print_bins = [](std::ostringstream& s, auto local_bin_indices) {
-      s << "{ ";
-      for (size_t i = 0; i < local_bin_indices.size()-1; ++i) {
-        s << local_bin_indices[i] << ", ";
-      }
-      s << local_bin_indices[local_bin_indices.size()-1] << " }";
-    };
-
-    // If any of these test fails, ROOT 7 binning went out of sync with
-    // ROOT 6 binning, and thusly broke our simple data transfer strategy :(
-    if (!bins_similar(src_impl.GetBinFrom(0), get_bin_from_root6(dest, 0))) {
-      std::ostringstream s;
-      s << "Binning origin doesn't match"
-        << " (source histogram's first bin is at ";
-      print_bins(s, src_impl.GetBinFrom(0));
-      s << ", target histogram's first bin is at ";
-      print_bins(s, get_bin_from_root6(dest, 0));
-      s << ')';
-      throw std::runtime_error(s.str());
-    }
-    if ((src_impl.GetNBins() >=2)
-        && (!bins_similar(src_impl.GetBinFrom(1), get_bin_from_root6(dest, 1)))) {
-      std::ostringstream s;
-      s << "Binning order doesn't match"
-        << " (source histogram's second bin is at ";
-      print_bins(s, src_impl.GetBinFrom(1));
-      s << ", target histogram's second bin is at ";
-      print_bins(s, get_bin_from_root6(dest, 1));
-      s << ')';
-      throw std::runtime_error(s.str());
-    }
-    if (src_impl.GetNBins() != dest.GetNcells()) {
-      std::ostringstream s;
-      s << "Bin count doesn't match"
-        << " (source histogram has " << src_impl.GetNBins() << " bins"
-        << ", target histogram has " << dest.GetNcells() << " bins)";
-      throw std::runtime_error(s.str());
-    }
-  }
-
-
   // Convert a ROOT 7 histogram into a ROOT 6 one
   template <class Output, class Input>
   Output convert_hist(const Input& src, const char* name) {
@@ -314,10 +264,38 @@ namespace detail
     // Set norm factor to zero (disable), since ROOT 7 doesn't seem to have this
     dest.SetNormFactor(0);
 
-    // Now we're ready to transfer histogram data. First of all, let's
-    // assert that ROOT 6 and ROOT 7 use the same binning convention. This
-    // seems true as of ROOT 6.18.0, but may change in the future...
-    check_binning(dest, *src.GetImpl());
+    // Now we're ready to transfer histogram data.
+    // This is how we turn a ROOT 7 global bin index into its ROOT 6 equivalent.
+    const auto& src_impl = *src.GetImpl();
+    auto to_dest_bin = [&](const int src_bin) -> Int_t {
+      // Convert to per-axis local bin coordinates
+      auto local_bins = src_impl.GetLocalBins(src_bin);
+
+      // Move to the ROOT 6 under/overflow bin indexing convention
+      for (int dim = 0; dim < src.GetNDim(); ++dim) {
+        if (local_bins[dim] == -1) {
+          local_bins[dim] = 0;
+        } else if (local_bins[dim] == -2) {
+          local_bins[dim] = src_impl.GetAxis(dim).GetNBins() - 1;
+        }
+      }
+
+      // Turn our local ROOT 6 coordinates into global ones
+      return get_bin_idx_from_local_root6(dest, local_bins);
+    };
+
+    // This is how we iterate over bins of the input ROOT 7 histogram, invoking
+    // a callback with the index of the input bin and that of the matching bin
+    // in the output ROOT 6 histogram.
+    const auto& src_stat = src_impl.GetStat();
+    auto for_each_src_bin = [&](auto&& bin_indices_callback) {
+      for (int src_bin = 1; src_bin <= (int)src_stat.sizeNoOver(); ++src_bin) {
+        bin_indices_callback(src_bin, to_dest_bin(src_bin));
+      }
+      for (int src_bin = -1; src_bin >= -(int)src_stat.sizeUnderOver(); --src_bin) {
+        bin_indices_callback(src_bin, to_dest_bin(src_bin));
+      }
+    };
 
     // Propagate bin uncertainties, if present.
     //
@@ -327,20 +305,19 @@ namespace detail
     // FIXME: if constexpr is C++17-only, will need to be backported to C++14
     //        for ROOT integration.
     //
-    const auto& stat = src.GetImpl()->GetStat();
-    if constexpr (stat.HasBinUncertainty()) {
+    if constexpr (src_stat.HasBinUncertainty()) {
       dest.Sumw2();
       auto& sumw2 = *dest.GetSumw2();
-      for (size_t bin = 0; bin < stat.size(); ++bin) {
-        sumw2[bin] = stat.GetSumOfSquaredWeights(bin);
-      }
+      for_each_src_bin([&](int src_bin, Int_t dest_bin) {
+        sumw2[dest_bin] = src_stat.GetSumOfSquaredWeights(src_bin);
+      });
     }
 
     // Propagate basic histogram statistics
-    dest.SetEntries(stat.GetEntries());
-    for (size_t bin = 0; bin < stat.size(); ++bin) {
-      dest.AddBinContent(bin, stat.GetBinContent(bin));
-    }
+    dest.SetEntries(src.GetEntries());
+    for_each_src_bin([&](int src_bin, Int_t dest_bin) {
+      dest.AddBinContent(dest_bin, src_stat.GetBinContent(src_bin));
+    });
 
     // Compute remaining statistics
     //

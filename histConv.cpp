@@ -51,39 +51,6 @@ namespace detail
   }
 
 
-  Double_t get_bin_from_root6(const TAxis& axis, Int_t bin) {
-    if (axis.IsVariableBinSize() && (bin == 0)) {
-      return std::numeric_limits<double>::lowest();
-    } else {
-      return axis.GetBinLowEdge(bin);
-    }
-  }
-
-
-  std::array<Double_t, 1> get_bin_from_root6(const TH1& hist, Int_t bin) {
-    std::array<Int_t, 3> bin_xyz;
-    hist.GetBinXYZ(bin, bin_xyz[0], bin_xyz[1], bin_xyz[2]);
-    return {get_bin_from_root6(*hist.GetXaxis(), bin_xyz[0])};
-  }
-
-
-  std::array<Double_t, 2> get_bin_from_root6(const TH2& hist, Int_t bin) {
-    std::array<Int_t, 3> bin_xyz;
-    hist.GetBinXYZ(bin, bin_xyz[0], bin_xyz[1], bin_xyz[2]);
-    return {get_bin_from_root6(*hist.GetXaxis(), bin_xyz[0]),
-            get_bin_from_root6(*hist.GetYaxis(), bin_xyz[1])};
-  }
-
-
-  std::array<Double_t, 3> get_bin_from_root6(const TH3& hist, Int_t bin) {
-    std::array<Int_t, 3> bin_xyz;
-    hist.GetBinXYZ(bin, bin_xyz[0], bin_xyz[1], bin_xyz[2]);
-    return {get_bin_from_root6(*hist.GetXaxis(), bin_xyz[0]),
-            get_bin_from_root6(*hist.GetYaxis(), bin_xyz[1]),
-            get_bin_from_root6(*hist.GetZaxis(), bin_xyz[2])};
-  }
-
-
   void setup_axis_base(TAxis& dest, const RExp::RAxisBase& src) {
     // Propagate axis title
     dest.SetTitle(src.GetTitle().c_str());
