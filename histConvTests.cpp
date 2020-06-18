@@ -34,22 +34,10 @@ int main() {
     test_conversion<2, char>(rng, {gen_axis_config(rng), gen_axis_config(rng)});
 
     // Try it with a 3D histogram
-    auto axis1 = gen_axis_config(rng);
-    auto axis2 = gen_axis_config(rng);
-    auto axis3 = gen_axis_config(rng);
-    bool homogeneous_config = (axis1.GetKind() == axis2.GetKind())
-                                && (axis2.GetKind() == axis3.GetKind());
-    if (homogeneous_config) {
-      test_conversion<3, char>(rng, {axis1, axis2, axis3});
-    } else {
-      // 3D histogram with inhomogeneous axis configuration are currently
-      // unsupported because TH3 does not provide a suitable constructor
-      RExp::RHist<3, char> bad{{axis1, axis2, axis3}};
-      assert_runtime_error(
-        [&] { into_root6_hist(bad, "nope"); },
-        "Converting a TH3 with an inhomogeneous axis config should fail"
-      );
-    }
+    test_conversion<3, char>(rng,
+                             {gen_axis_config(rng),
+                              gen_axis_config(rng),
+                              gen_axis_config(rng)});
   }
 
   // ...and we're good.
