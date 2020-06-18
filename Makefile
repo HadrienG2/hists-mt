@@ -1,6 +1,7 @@
 # CC=g++ is technically incorrect, but needed for LTO w/ implicit make rules
 CC:=g++
 CXX:=g++
+# NOTE: Once GCC 10 is old enough, consider using -flto=auto instead
 LTOFLAGS:=-flto=$(shell nproc --all)
 CXXFLAGS:=-O3 -march=native -std=c++17 -Wall -Wextra -pedantic $(LTOFLAGS)
 LDFLAGS:=$(LTOFLAGS)
