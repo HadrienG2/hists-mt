@@ -26,7 +26,6 @@ void test_conversion_exotic_stats(RNG& rng) {
 
   // Insufficient stats will be reported at compile time with a clear error
   // message (unfortunately followed by ROOT blowing up, as of v6.18.0...)
-  // FIXME: Add a way to test compilation failures
   /* test_conversion<1,
                   char,
                   RExp::RHistDataMomentUncert>(rng, {gen_axis_config(rng)});

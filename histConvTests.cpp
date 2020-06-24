@@ -27,7 +27,6 @@ int main() {
 
     // This data type is not supported by ROOT6. The problem will be reported at
     // compile time with a clear error message.
-    // FIXME: Add a way to test compilation failures
     /* test_conversion<1, size_t>(rng, {gen_axis_config(rng)}); */
 
     // Try it with a 2D histogram
